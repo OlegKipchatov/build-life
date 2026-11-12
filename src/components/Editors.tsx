@@ -14,7 +14,14 @@ import {
   type Milestone,
   type EntityType,
 } from "../model";
-import { Field, Area, Choice, MultiChoice, FormActions } from "./Fields";
+import {
+  Field,
+  Area,
+  Choice,
+  MultiChoice,
+  FormActions,
+  FooterTarget,
+} from "./Fields";
 import { Icon, iconChoices } from "./Icon";
 import { Empty, EntityMenu, Filters, Progress } from "./Common";
 import { NameForm } from "../pages/Settings";
@@ -27,7 +34,7 @@ const Footer = ({ editing = false }: { editing?: boolean }) => {
       <Button variant="secondary" onPress={back}>
         {ui("Отмена", "Cancel")}
       </Button>
-      <Button type="submit">
+      <Button type="submit" form="editor-form">
         {editing ? ui("Сохранить", "Save") : ui("Создать", "Create")}
       </Button>
     </FormActions>
@@ -102,6 +109,7 @@ const TaskEditor = ({
   ];
   return (
     <form
+      id="editor-form"
       className={s.form}
       onSubmit={(e) => {
         e.preventDefault();
@@ -287,7 +295,7 @@ const TaskEditor = ({
         <Button variant="secondary" onPress={back}>
           {ui("Отмена", "Cancel")}
         </Button>
-        <Button type="submit">
+        <Button type="submit" form="editor-form">
           {original
             ? ui("Сохранить", "Save")
             : ui("Создать задачу", "Create task")}
@@ -323,6 +331,7 @@ const EntityEditor = ({
   );
   return (
     <form
+      id="editor-form"
       className={s.form}
       onSubmit={(e) => {
         e.preventDefault();
@@ -432,6 +441,7 @@ const StepEditor = ({
   const [name, setName] = useState(original?.name || "");
   return (
     <form
+      id="editor-form"
       className={s.form}
       onSubmit={(e) => {
         e.preventDefault();
@@ -471,57 +481,65 @@ const Manager = () => {
   );
   return (
     <div className={s.form}>
-      <NameForm />
-      <Filters
-        value={tab}
-        onChange={setTab}
-        items={[
-          ["attribute", ui("Характеристики", "Attributes")],
-          ["skill", ui("Навыки", "Skills")],
-        ]}
-      />
-      <div className={s.managerToolbar}>
+      <details className={s.managerIdentity}>
+        <summary>
+          {ui("Имя персонажа", "Character name")}
+          <span>{data.name}</span>
+        </summary>
+        <NameForm />
+      </details>
+      <section className={s.managerSection}>
         <Filters
-          value={view}
-          onChange={setView}
+          value={tab}
+          onChange={setTab}
           items={[
-            ["active", ui("Текущие", "Current")],
-            ["archived", ui("Архив", "Archive")],
+            ["attribute", ui("Характеристики", "Attributes")],
+            ["skill", ui("Навыки", "Skills")],
           ]}
         />
-        <Button
-          isIconOnly
-          aria-label={
-            tab === "skill"
-              ? ui("Новый навык", "New skill")
-              : ui("Новая характеристика", "New attribute")
-          }
-          onPress={() =>
-            open({ kind: "entity", type: tab as "attribute" | "skill" })
-          }
-        >
-          <Icon name="plus" />
-        </Button>
-      </div>
-      <div>
-        {items.map((e) => (
-          <div className={s.managerRow} key={e.id}>
-            <span className={s.symbol}>
-              <Icon name={e.icon || "shield"} />
-            </span>
-            <div>
-              <strong>{e.name}</strong>
-              <small>
-                {ui("Уровень", "Level")} {level(e.xp || 0)} · {e.xp || 0} XP
-              </small>
+        <div className={s.managerToolbar}>
+          <Filters
+            value={view}
+            onChange={setView}
+            items={[
+              ["active", ui("Текущие", "Current")],
+              ["archived", ui("Архив", "Archive")],
+            ]}
+          />
+          <Button
+            isIconOnly
+            aria-label={
+              tab === "skill"
+                ? ui("Новый навык", "New skill")
+                : ui("Новая характеристика", "New attribute")
+            }
+            onPress={() =>
+              open({ kind: "entity", type: tab as "attribute" | "skill" })
+            }
+          >
+            <Icon name="plus" />
+          </Button>
+        </div>
+        <div>
+          {items.map((e) => (
+            <div className={s.managerRow} key={e.id}>
+              <span className={s.symbol}>
+                <Icon name={e.icon || "shield"} />
+              </span>
+              <div>
+                <strong>{e.name}</strong>
+                <small>
+                  {ui("Уровень", "Level")} {level(e.xp || 0)} · {e.xp || 0} XP
+                </small>
+              </div>
+              <EntityMenu type={tab as EntityType} entity={e} />
             </div>
-            <EntityMenu type={tab as EntityType} entity={e} />
-          </div>
-        ))}
-        {!items.length && (
-          <Empty>{ui("Здесь пока пусто", "Nothing here yet")}</Empty>
-        )}
-      </div>
+          ))}
+          {!items.length && (
+            <Empty>{ui("Здесь пока пусто", "Nothing here yet")}</Empty>
+          )}
+        </div>
+      </section>
       <Button
         variant="tertiary"
         onPress={() => {
@@ -573,6 +591,7 @@ const SkillDetail = ({ id }: { id: string }) => {
   );
 };
 export const Editors = () => {
+  const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
   const { screen, back } = useUI();
   const { ui, error } = useStore();
   let title = "";
@@ -626,54 +645,57 @@ export const Editors = () => {
               <Icon name="close" />
             </Button>
           </Modal.Header>
-          <Modal.Body className={s.modalBody}>
-            {error && (
-              <p role="alert" className={s.error}>
-                {error}
-              </p>
-            )}
-            {screen?.kind === "task" && (
-              <TaskEditor
-                key={screen.id || screen.step || "task"}
-                screen={screen}
-              />
-            )}{" "}
-            {screen?.kind === "entity" && (
-              <EntityEditor
-                key={`${screen.type}-${screen.id}`}
-                screen={screen}
-              />
-            )}{" "}
-            {screen?.kind === "step" && (
-              <StepEditor key={screen.id || "step"} screen={screen} />
-            )}{" "}
-            {screen?.kind === "manager" && <Manager />}
-            {screen?.kind === "skill" && <SkillDetail id={screen.id} />}{" "}
-            {screen?.kind === "confirm" && (
-              <div className={s.form}>
-                <p>{screen.message}</p>
-                <p className={s.muted}>
-                  {ui(
-                    "Это действие нельзя отменить.",
-                    "This action cannot be undone.",
-                  )}
+          <FooterTarget value={footerTarget}>
+            <Modal.Body className={s.modalBody}>
+              {error && (
+                <p role="alert" className={s.error}>
+                  {error}
                 </p>
-                <FormActions>
-                  <Button variant="secondary" onPress={back}>
-                    {ui("Отмена", "Cancel")}
-                  </Button>
-                  <Button
-                    className={s.dangerButton}
-                    onPress={() => {
-                      if (screen.action()) back();
-                    }}
-                  >
-                    {ui("Удалить", "Delete")}
-                  </Button>
-                </FormActions>
-              </div>
-            )}
-          </Modal.Body>
+              )}
+              {screen?.kind === "task" && (
+                <TaskEditor
+                  key={screen.id || screen.step || "task"}
+                  screen={screen}
+                />
+              )}{" "}
+              {screen?.kind === "entity" && (
+                <EntityEditor
+                  key={`${screen.type}-${screen.id}`}
+                  screen={screen}
+                />
+              )}{" "}
+              {screen?.kind === "step" && (
+                <StepEditor key={screen.id || "step"} screen={screen} />
+              )}{" "}
+              {screen?.kind === "manager" && <Manager />}
+              {screen?.kind === "skill" && <SkillDetail id={screen.id} />}{" "}
+              {screen?.kind === "confirm" && (
+                <div className={s.form}>
+                  <p>{screen.message}</p>
+                  <p className={s.muted}>
+                    {ui(
+                      "Это действие нельзя отменить.",
+                      "This action cannot be undone.",
+                    )}
+                  </p>
+                  <FormActions>
+                    <Button variant="secondary" onPress={back}>
+                      {ui("Отмена", "Cancel")}
+                    </Button>
+                    <Button
+                      className={s.dangerButton}
+                      onPress={() => {
+                        if (screen.action()) back();
+                      }}
+                    >
+                      {ui("Удалить", "Delete")}
+                    </Button>
+                  </FormActions>
+                </div>
+              )}
+            </Modal.Body>
+            <div ref={setFooterTarget} className={s.modalFooter} />
+          </FooterTarget>
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>

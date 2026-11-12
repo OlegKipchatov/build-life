@@ -4,6 +4,8 @@ import { Button } from "@heroui/react";
 import { useStore } from "../store";
 import { useUI } from "../ui";
 import {
+  formatDate,
+  taskCount,
   canComplete,
   completeMilestone,
   milestoneProgress,
@@ -69,7 +71,9 @@ export const Milestones = () => {
                 </span>
                 <div>
                   <h2>{m.name}</h2>
-                  {m.targetDate && <small>{m.targetDate}</small>}
+                  {m.targetDate && (
+                    <small>{formatDate(m.targetDate, data.language)}</small>
+                  )}
                   {m.status === "completed" && (
                     <small>{ui("Достижение", "Achievement")}</small>
                   )}
@@ -78,7 +82,10 @@ export const Milestones = () => {
               </div>
               {p.total > 0 ? (
                 <>
-                  <Progress value={p.percent} />
+                  <Progress
+                    value={p.percent}
+                    label={ui("Прогресс вехи", "Milestone progress")}
+                  />
                   <div className={s.progressCaption}>
                     <span>
                       {p.completed} {ui("из", "of")} {p.total}{" "}
@@ -143,9 +150,7 @@ const StepItem = ({ step, m }: { step: Step; m: Milestone }) => {
           onClick={() => setExpanded(!expanded)}
         >
           <strong>{step.name}</strong>
-          <small>
-            {tasks.length} {ui("задач", "tasks")}
-          </small>
+          <small>{taskCount(tasks.length, data.language)}</small>
         </button>
         <Button
           isIconOnly
@@ -274,7 +279,8 @@ export const MilestoneDetail = () => {
           {m.description && <p>{m.description}</p>}
           {m.targetDate && (
             <small>
-              {ui("Цель к", "Target date")} {m.targetDate}
+              {ui("Цель к", "Target date")}{" "}
+              {formatDate(m.targetDate, data.language)}
             </small>
           )}
           {m.status === "archived" && (
@@ -298,7 +304,10 @@ export const MilestoneDetail = () => {
         </div>
         {p.total > 0 ? (
           <>
-            <Progress value={p.percent} />
+            <Progress
+              value={p.percent}
+              label={ui("Прогресс вехи", "Milestone progress")}
+            />
             <p className={s.muted}>
               {p.completed} {ui("из", "of")} {p.total}{" "}
               {ui("шагов выполнено", "steps complete")}

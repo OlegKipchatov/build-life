@@ -356,3 +356,31 @@ export const durationText = (start: string, en: boolean) => {
       .join(" ") || (en ? "0 days" : "0 дней")
   );
 };
+
+export const formatDate = (value: string, language: string) => {
+  const date = new Date(value + "T12:00:00");
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(language, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(date);
+};
+export const taskCount = (count: number, language: string) => {
+  const plural = new Intl.PluralRules(language).select(count);
+  const word =
+    language === "en"
+      ? plural === "one"
+        ? "task"
+        : "tasks"
+      : {
+          zero: "задач",
+          one: "задача",
+          two: "задачи",
+          few: "задачи",
+          many: "задач",
+          other: "задачи",
+        }[plural] || "задач";
+  return `${count} ${word}`;
+};

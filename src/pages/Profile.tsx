@@ -112,16 +112,18 @@ export const Profile = () => {
                     </span>
                     <span className={s.skillBody}>
                       <strong>{skill.name}</strong>
-                      <span>
-                        {data.attributes
-                          .filter((a) =>
-                            (skill.attributes || [skill.attribute]).includes(
-                              a.id,
-                            ),
-                          )
-                          .map((a) => a.name)
-                          .join(" · ")}{" "}
+                      <span className={s.skillMeta}>
                         <EntityLevel entity={skill} />
+                        <span>
+                          {data.attributes
+                            .filter((a) =>
+                              (skill.attributes || [skill.attribute]).includes(
+                                a.id,
+                              ),
+                            )
+                            .map((a) => a.name)
+                            .join(" · ")}
+                        </span>
                       </span>
                     </span>
                     <Icon name="chevron" />

@@ -2,7 +2,15 @@ import { useState } from "react";
 import { Button } from "@heroui/react";
 import { useStore } from "../store";
 import { useUI } from "../ui";
-import { dateKey, done, due, toggleTask, xpValue, type Task } from "../model";
+import {
+  formatDate,
+  dateKey,
+  done,
+  due,
+  toggleTask,
+  xpValue,
+  type Task,
+} from "../model";
 import {
   Header,
   Action,
@@ -68,10 +76,10 @@ export const TaskRow = ({
               year: "Yearly",
             }[task.repeat],
           )}
-          {task.date ? ` · ${task.date}` : ""}
+          {task.date ? ` · ${formatDate(task.date, data.language)}` : ""}
         </small>
+        <span className={s.xp}>+{xpValue(task)} XP</span>
       </div>
-      <span className={s.xp}>+{xpValue(task)} XP</span>
       <EntityMenu type="task" entity={task} />
     </div>
   );

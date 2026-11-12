@@ -35,7 +35,7 @@ export const Header = ({
   children?: ReactNode;
   back?: () => void;
 }) => (
-  <header className={s.header}>
+  <header className={`${s.header} ${back ? s.detailHeader : ""}`}>
     {back && (
       <Button
         variant="secondary"

@@ -7,7 +7,10 @@ import {
   ListBox,
   FieldError,
 } from "@heroui/react";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useStore } from "../store";
+export const FooterTarget = createContext<HTMLDivElement | null>(null);
 import s from "../App.module.css";
 export const Field = ({
   label,
@@ -93,30 +96,36 @@ export const MultiChoice = ({
   value: string[];
   onChange: (v: string[]) => void;
   options: [string, string][];
-}) => (
-  <Select
-    selectionMode="multiple"
-    className={s.field}
-    value={value}
-    onChange={(v) => onChange(v.map(String))}
-  >
-    <Label>{label}</Label>
-    <Select.Trigger className={s.input}>
-      <Select.Value />
-      <Select.Indicator />
-    </Select.Trigger>
-    <Select.Popover>
-      <ListBox>
-        {options.map(([id, text]) => (
-          <ListBox.Item key={id} id={id} textValue={text}>
-            {text}
-            <ListBox.ItemIndicator />
-          </ListBox.Item>
-        ))}
-      </ListBox>
-    </Select.Popover>
-  </Select>
-);
-export const FormActions = ({ children }: { children: ReactNode }) => (
-  <div className={s.formActions}>{children}</div>
-);
+}) => {
+  const { ui } = useStore();
+  return (
+    <Select
+      placeholder={ui("Выберите характеристики", "Select attributes")}
+      selectionMode="multiple"
+      className={s.field}
+      value={value}
+      onChange={(v) => onChange(v.map(String))}
+    >
+      <Label>{label}</Label>
+      <Select.Trigger className={s.input}>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {options.map(([id, text]) => (
+            <ListBox.Item key={id} id={id} textValue={text}>
+              {text}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+};
+export const FormActions = ({ children }: { children: ReactNode }) => {
+  const target = useContext(FooterTarget);
+  const actions = <div className={s.formActions}>{children}</div>;
+  return target ? createPortal(actions, target) : actions;
+};

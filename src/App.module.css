@@ -1101,3 +1101,222 @@
     font-size: 14px;
   }
 }
+
+/* Shared audit refinements: keep input typography at 16px. */
+.check,
+.check:hover,
+.check[data-hovered="true"] {
+  background: transparent;
+  box-shadow: none;
+  flex-shrink: 0;
+  width: 44px;
+  min-width: 44px;
+}
+.check > span {
+  border-color: var(--muted);
+  width: 22px;
+  height: 22px;
+}
+.check[aria-pressed="true"] > svg {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  width: 22px;
+  height: 22px;
+}
+.taskText strong {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.taskText small,
+.stepTitle small,
+.goalTop small,
+.goalIntro small,
+.goal .progressCaption,
+.skillProgress small,
+.skillBody > span,
+.level,
+.name > span,
+.xpLabels,
+.characterLevel span {
+  font-size: 13px;
+}
+.taskText small {
+  margin-top: 3px;
+}
+.taskText .xp {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.stats span {
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  padding-inline: 4px;
+}
+.more {
+  width: 44px;
+  height: 44px;
+}
+.skillMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.skillMeta .level {
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 3px;
+}
+.skillMeta > span:last-child:empty {
+  display: none;
+}
+.skillMeta > span:last-child {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.detailHeader {
+  align-items: flex-start;
+}
+.detailHeader > button {
+  flex-shrink: 0;
+}
+.detailHeader h1 {
+  font-size: 24px;
+  line-height: 1.35;
+  padding-top: 5px;
+  letter-spacing: -0.4px;
+}
+.fabAnchor {
+  position: sticky;
+  bottom: 0;
+  right: auto;
+  display: flex;
+  justify-content: flex-end;
+  min-height: 82px;
+  padding: 12px 4px;
+  margin-top: 16px;
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  z-index: 20;
+}
+.dialog {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.modalHeader {
+  flex: 0 0 auto;
+  padding: 22px 24px 18px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+.modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px;
+}
+.modalFooter {
+  flex: 0 0 auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.modalFooter:empty {
+  display: none;
+}
+.modalFooter .formActions {
+  margin: 0;
+  flex-wrap: wrap;
+}
+.managerIdentity {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+.managerIdentity summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  align-content: center;
+}
+.managerIdentity summary span {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 12px;
+  overflow-wrap: anywhere;
+}
+.managerIdentity .form {
+  margin-top: 12px;
+}
+.managerSection > .filters {
+  margin-bottom: 16px;
+}
+.managerSection > .filters button {
+  flex: 1;
+  min-height: 44px;
+  font-size: 14px;
+}
+.managerToolbar {
+  margin-bottom: 8px;
+}
+.managerRow {
+  padding-block: 12px;
+}
+@media (max-width: 1023px) {
+  .profileColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detailHeader h1 {
+    font-size: 21px;
+    line-height: 1.35;
+  }
+  .dialog {
+    padding: 0;
+    overflow: hidden;
+  }
+  .modalHeader {
+    padding: 18px 20px;
+  }
+  .modalBody {
+    padding: 20px;
+  }
+  .modalFooter {
+    padding: 14px 20px max(18px, env(safe-area-inset-bottom));
+  }
+  .fabAnchor {
+    bottom: calc(90px + env(safe-area-inset-bottom));
+    margin-bottom: 0;
+  }
+  .bottomNav {
+    background: color-mix(in srgb, var(--surface) 48%, transparent);
+    border-color: color-mix(in srgb, var(--surface) 80%, transparent);
+    box-shadow:
+      0 8px 30px #14352120,
+      inset 0 1px 1px #ffffffb0,
+      inset 0 -1px 1px #ffffff35;
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+  }
+  .bottomNav .navLink.active {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--lime) 26%, transparent);
+    box-shadow:
+      inset 0 1px 1px #ffffffb0,
+      0 2px 8px #1435210d;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .bottomNav {
+    background: var(--surface);
+  }
+}
