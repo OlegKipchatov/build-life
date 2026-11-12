@@ -1,0 +1,386 @@
+export type Status = "active" | "done" | "completed" | "archived";
+export type Entity = {
+  id: string;
+  name: string;
+  xp?: number;
+  icon?: string;
+  status?: Status;
+  statusBeforeArchive?: Status;
+  attribute?: string;
+  attributes?: string[];
+  [key: string]: unknown;
+};
+export type Step = {
+  id: string;
+  name: string;
+  order: number;
+  completed: boolean;
+  completedAt: string | null;
+  [key: string]: unknown;
+};
+export type Milestone = Entity & {
+  steps: Step[];
+  description?: string;
+  color?: string;
+  targetDate?: string;
+  completedAt?: string | null;
+};
+export type Task = Entity & {
+  difficulty: "easy" | "medium" | "hard";
+  repeat: "once" | "daily" | "weekly" | "half" | "year";
+  scheduleMode?: string;
+  date?: string;
+  days?: number[];
+  milestone?: string;
+  stepId?: string;
+  skill?: string;
+  completions?: string[];
+  completedDate?: string;
+  wasDone?: boolean;
+};
+export type Data = {
+  name: string;
+  theme: "system" | "light" | "dark";
+  language: "ru" | "en";
+  xp: number;
+  startedAt: string;
+  tasks: Task[];
+  milestones: Milestone[];
+  attributes: Entity[];
+  skills: Entity[];
+  [key: string]: unknown;
+};
+export type EntityType = "task" | "milestone" | "attribute" | "skill";
+export const collection = {
+  task: "tasks",
+  milestone: "milestones",
+  attribute: "attributes",
+  skill: "skills",
+} as const;
+export const dateKey = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const uid = () => crypto.randomUUID();
+export const level = (xp: number) => Math.floor(xp / 100) + 1;
+export const progression = (e: Entity) =>
+  typeof e.xp === "number" && Number.isFinite(e.xp) && e.xp >= 0
+    ? { level: level(e.xp), current: e.xp % 100 }
+    : null;
+export const stateOf = (e: Entity) =>
+  e.status === "archived"
+    ? "archived"
+    : e.status === "completed"
+      ? "completed"
+      : "active";
+export const xpValue = (t: Task) =>
+  ({ easy: 10, medium: 20, hard: 30 })[t.difficulty] || 10;
+export const done = (t: Task, date = dateKey()) =>
+  t.repeat === "once"
+    ? t.status === "done" && (t.completedDate || dateKey()) === date
+    : (t.completions || []).includes(date);
+export const due = (t: Task, date = dateKey()) => {
+  if (t.status === "archived") return false;
+  if (t.repeat === "once")
+    return t.status === "done"
+      ? (t.completedDate || dateKey()) === date
+      : t.date
+        ? t.date === date || (date === dateKey() && t.date < date)
+        : date === dateKey();
+  if (t.repeat === "daily") return true;
+  if (t.repeat === "weekly")
+    return (t.days || []).includes(new Date(date + "T12:00:00").getDay());
+  if (!t.date) return false;
+  const start = new Date(t.date + "T12:00:00"),
+    now = new Date(date + "T12:00:00");
+  if (start > now) return false;
+  const months =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    now.getMonth() -
+    start.getMonth();
+  return (
+    months % (t.repeat === "half" ? 6 : 12) === 0 &&
+    now.getDate() ===
+      Math.min(
+        start.getDate(),
+        new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
+      )
+  );
+};
+export const toggleTask = (data: Data, id: string, date = dateKey()) => {
+  const t = data.tasks.find((t) => t.id === id);
+  if (!t || t.status === "archived" || date !== dateKey()) return false;
+  const was = t.repeat === "once" ? t.status === "done" : done(t, date),
+    amount = xpValue(t) * (was ? -1 : 1);
+  if (t.repeat === "once") {
+    t.status = was ? "active" : "done";
+    t.completedDate = was ? "" : date;
+  } else
+    t.completions = was
+      ? (t.completions || []).filter((d) => d !== date)
+      : [...(t.completions || []), date];
+  data.xp = Math.max(0, data.xp + amount);
+  const a = data.attributes.find((a) => a.id === t.attribute);
+  if (a) a.xp = Math.max(0, (a.xp || 0) + amount);
+  const s = data.skills.find((s) => s.id === t.skill);
+  if (s) {
+    const before = level(s.xp || 0);
+    s.xp = Math.max(0, (s.xp || 0) + amount);
+    const diff = level(s.xp) - before;
+    if (diff)
+      data.attributes
+        .filter((a) => (s.attributes || [s.attribute]).includes(a.id))
+        .forEach((a) => {
+          a.xp = Math.max(0, (a.xp || 0) + diff * 100);
+        });
+  }
+  return true;
+};
+export const milestoneProgress = (m: Milestone) => {
+  const total = m.steps.length,
+    completed = m.steps.filter((s) => s.completed).length;
+  return {
+    total,
+    completed,
+    percent: total ? Math.round((completed / total) * 100) : null,
+  };
+};
+export const orderedSteps = (m: Milestone) =>
+  [...m.steps].sort((a, b) => a.order - b.order);
+export const canComplete = (m: Milestone) =>
+  stateOf(m) === "active" &&
+  m.steps.length > 0 &&
+  m.steps.every((s) => s.completed);
+export const completeMilestone = (
+  m: Milestone,
+  now = new Date().toISOString(),
+) => {
+  if (!canComplete(m)) return false;
+  m.status = "completed";
+  m.completedAt = now;
+  return true;
+};
+const reopen = (m: Milestone) => {
+  if (m.status === "completed") {
+    m.status = "active";
+    m.completedAt = null;
+  }
+};
+export const addStep = (m: Milestone, id: string, name: string) => {
+  if (
+    m.status === "archived" ||
+    !name.trim() ||
+    m.steps.some((s) => s.id === id)
+  )
+    return false;
+  reopen(m);
+  m.steps.push({
+    id,
+    name: name.trim(),
+    completed: false,
+    completedAt: null,
+    order: Math.max(-1, ...m.steps.map((s) => s.order)) + 1,
+  });
+  return true;
+};
+export const setStep = (
+  m: Milestone,
+  id: string,
+  completed: boolean,
+  now = new Date().toISOString(),
+) => {
+  const s = m.steps.find((s) => s.id === id);
+  if (!s || m.status === "archived" || s.completed === completed) return false;
+  reopen(m);
+  s.completed = completed;
+  s.completedAt = completed ? now : null;
+  return true;
+};
+export const moveStep = (m: Milestone, id: string, direction: number) => {
+  if (m.status === "archived" || ![-1, 1].includes(direction)) return false;
+  const list = orderedSteps(m),
+    i = list.findIndex((s) => s.id === id),
+    j = i + direction;
+  if (i < 0 || j < 0 || j >= list.length) return false;
+  [list[i], list[j]] = [list[j], list[i]];
+  list.forEach((s, index) => (s.order = index));
+  return true;
+};
+export const removeStep = (data: Data, m: Milestone, id: string) => {
+  if (m.status === "archived" || !m.steps.some((s) => s.id === id))
+    return false;
+  reopen(m);
+  m.steps = m.steps.filter((s) => s.id !== id);
+  data.tasks
+    .filter((t) => t.milestone === m.id && t.stepId === id)
+    .forEach((t) => (t.stepId = ""));
+  return true;
+};
+export const linkTask = (
+  data: Data,
+  t: Task,
+  milestoneId?: string,
+  stepId?: string,
+) => {
+  const m = data.milestones.find((m) => m.id === milestoneId);
+  t.milestone = m?.id || "";
+  t.stepId = m?.steps.some((s) => s.id === stepId) ? stepId : "";
+};
+export const removeEntity = (data: Data, type: EntityType, id: string) => {
+  if (type === "task") data.tasks = data.tasks.filter((x) => x.id !== id);
+  if (type === "milestone") {
+    data.milestones = data.milestones.filter((x) => x.id !== id);
+    data.tasks
+      .filter((t) => t.milestone === id)
+      .forEach((t) => {
+        t.milestone = "";
+        t.stepId = "";
+      });
+  }
+  if (type === "skill") {
+    data.skills = data.skills.filter((x) => x.id !== id);
+    data.tasks.filter((t) => t.skill === id).forEach((t) => (t.skill = ""));
+  }
+  if (type === "attribute") {
+    data.attributes = data.attributes.filter((x) => x.id !== id);
+    data.tasks
+      .filter((t) => t.attribute === id)
+      .forEach((t) => (t.attribute = ""));
+    data.skills.forEach((s) => {
+      if (s.attribute === id) delete s.attribute;
+      s.attributes = s.attributes?.filter((x) => x !== id);
+    });
+  }
+};
+export const archiveEntity = (e: Entity, type: EntityType) => {
+  if (type === "task") {
+    const t = e as Task;
+    if (t.status === "archived")
+      t.status = t.repeat === "once" && t.wasDone ? "done" : "active";
+    else {
+      t.wasDone = t.repeat === "once" ? t.status === "done" : done(t);
+      t.status = "archived";
+    }
+  } else if (e.status === "archived") {
+    e.status = e.statusBeforeArchive || "active";
+    delete e.statusBeforeArchive;
+  } else {
+    e.statusBeforeArchive = stateOf(e);
+    e.status = "archived";
+  }
+};
+export const freshData = (): Data => ({
+  name: "Герой",
+  theme: "system",
+  language: "ru",
+  xp: 0,
+  startedAt: dateKey(),
+  tasks: [],
+  milestones: [],
+  attributes: [],
+  skills: [],
+});
+export const migrate = (raw: unknown): Data => {
+  const data = {
+    ...freshData(),
+    ...(raw && typeof raw === "object" ? raw : {}),
+  } as Data;
+  for (const key of ["tasks", "milestones", "attributes", "skills"] as const)
+    if (!Array.isArray(data[key])) data[key] = [];
+  if (!data.startedAt) data.startedAt = dateKey();
+  data.milestones.forEach((m) => {
+    if (!Array.isArray(m.steps)) m.steps = [];
+    m.steps.forEach((s, i) => {
+      s.id ||= `${m.id}-legacy-step-${i}`;
+      if (!Number.isFinite(s.order)) s.order = i;
+      s.name ??= String(s.title || "");
+      s.completed = s.completed === true;
+    });
+  });
+  data.tasks.forEach((t) => {
+    if (
+      t.stepId &&
+      !data.milestones.some(
+        (m) => m.id === t.milestone && m.steps.some((s) => s.id === t.stepId),
+      )
+    )
+      t.stepId = "";
+  });
+  return data;
+};
+export const journeyDays = (start: string, end = dateKey()) =>
+  Math.max(
+    0,
+    Math.round(
+      (Date.parse(end + "T00:00:00Z") - Date.parse(start + "T00:00:00Z")) /
+        86400000,
+    ),
+  ) || 0;
+export const durationText = (start: string, en: boolean) => {
+  const end = dateKey();
+  if (end < start) return en ? "0 days" : "0 дней";
+  const [y, m, d] = start.split("-").map(Number),
+    [ey, em, ed] = end.split("-").map(Number);
+  const at = (n: number) => {
+    const first = new Date(Date.UTC(y, m - 1 + n, 1));
+    return Date.UTC(
+      first.getUTCFullYear(),
+      first.getUTCMonth(),
+      Math.min(
+        d,
+        new Date(
+          Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0),
+        ).getUTCDate(),
+      ),
+    );
+  };
+  let months = (ey - y) * 12 + em - m;
+  const target = Date.UTC(ey, em - 1, ed);
+  if (at(months) > target) months--;
+  const values = [
+      Math.floor(months / 12),
+      months % 12,
+      Math.round((target - at(months)) / 86400000),
+    ],
+    forms = [
+      ["год", "года", "лет"],
+      ["месяц", "месяца", "месяцев"],
+      ["день", "дня", "дней"],
+    ];
+  return (
+    values
+      .map((n, i) =>
+        n
+          ? `${n} ${en ? ["year", "month", "day"][i] + (n === 1 ? "" : "s") : forms[i][n % 100 >= 11 && n % 100 <= 14 ? 2 : n % 10 === 1 ? 0 : n % 10 >= 2 && n % 10 <= 4 ? 1 : 2]}`
+          : "",
+      )
+      .filter(Boolean)
+      .join(" ") || (en ? "0 days" : "0 дней")
+  );
+};
+
+export const formatDate = (value: string, language: string) => {
+  const date = new Date(value + "T12:00:00");
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(language, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(date);
+};
+export const taskCount = (count: number, language: string) => {
+  const plural = new Intl.PluralRules(language).select(count);
+  const word =
+    language === "en"
+      ? plural === "one"
+        ? "task"
+        : "tasks"
+      : {
+          zero: "задач",
+          one: "задача",
+          two: "задачи",
+          few: "задачи",
+          many: "задач",
+          other: "задачи",
+        }[plural] || "задач";
+  return `${count} ${word}`;
+};

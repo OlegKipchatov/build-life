@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+:root {
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #25332b;
+  background: #f6f7f1;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --accent: #174b35;
+  --accent-foreground: #fff;
+  --background: #f6f7f1;
+  --foreground: #25332b;
+  --surface: #fff;
+  --surface-secondary: #edf1e8;
+  --field-background: #f4f6f0;
+  --field-foreground: #25332b;
+  --muted: #626f65;
+  --border: #e7ebe2;
+  --radius: 1rem;
+  --lime: #d2ef77;
+  --focus: #47794d;
+  --danger: #ba3d44;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --background: #142019;
+  --foreground: #e9eee7;
+  --surface: #1c2c22;
+  --surface-secondary: #26392b;
+  --field-background: #26392b;
+  --field-foreground: #e9eee7;
+  --muted: #a6b3a8;
+  --border: #354638;
+  --accent: #cce994;
+  --accent-foreground: #163323;
+  --focus: #cce994;
+  color-scheme: dark;
+  color: var(--foreground);
+  background: var(--background);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--background);
+  color: var(--foreground);
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.7px;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 620;
+  letter-spacing: -0.3px;
+}
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+small {
+  font-size: 12px;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+legend {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+[role="menuitem"] {
+  gap: 10px;
+  min-height: 44px;
+}
+[role="menuitem"] svg {
+  width: 18px;
+  height: 18px;
+}
+input,
+textarea {
+  width: 100%;
+}
+textarea {
+  resize: vertical;
+}
+button:disabled {
+  cursor: default;
+}
+::selection {
+  background: #d2ef77;
+  color: #143c2b;
+}
+/* Permanent mobile-input-typography rule. Never shrink controls or disable zoom. */
+@media (max-width: 900px), (pointer: coarse) {
+  input,
+  textarea,
+  select,
+  [contenteditable="true"],
+  [contenteditable=""],
+  [role="combobox"],
+  [data-slot="select-trigger"],
+  .select__trigger,
+  .input,
+  .textarea {
+    font-size: 16px !important;
+    line-height: 1.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

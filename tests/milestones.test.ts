@@ -1,0 +1,174 @@
+import { test } from "vitest";
+import assert from "node:assert/strict";
+import * as M from "../src/model";
+const D = {
+  ...M,
+  progress: M.milestoneProgress,
+  complete: M.completeMilestone,
+  ordered: M.orderedSteps,
+  eligible: M.canComplete,
+  removeMilestone: (d, id) => M.removeEntity(d, "milestone", id),
+};
+const setup = () =>
+  D.migrate({ xp: 42, milestones: [{ id: "m", name: "Goal" }], tasks: [] });
+const goal = () => {
+  const d = setup(),
+    m = d.milestones[0];
+  ["a", "b", "c"].forEach((id) => D.addStep(m, id, id));
+  return { d, m };
+};
+test("Миграция сохраняет старые вехи и историю", () => {
+  const d = {
+    xp: 42,
+    milestones: [{ id: "m", status: "completed" }],
+    tasks: [{ id: "t", milestone: "m", completions: ["date"] }],
+  };
+  const migrated = D.migrate(d);
+  assert.deepEqual(
+    { xp: migrated.xp, milestones: migrated.milestones, tasks: migrated.tasks },
+    {
+      xp: 42,
+      milestones: [{ id: "m", status: "completed", steps: [] }],
+      tasks: [{ id: "t", milestone: "m", completions: ["date"] }],
+    },
+  );
+});
+test("Пустая веха без процента и завершения", () => {
+  const m = setup().milestones[0];
+  assert.deepEqual(
+    [D.progress(m).percent, D.complete(m, "now")],
+    [null, false],
+  );
+});
+test("Прогресс 2 из 3 равен 67", () => {
+  const { m } = goal();
+  D.setStep(m, "a", true, "now");
+  D.setStep(m, "b", true, "now");
+  assert.equal(D.progress(m).percent, 67);
+});
+test("Незакрытые шаги блокируют завершение на уровне модели", () => {
+  assert.equal(D.complete(goal().m, "now"), false);
+});
+test("Завершение явно, идемпотентно, XP не дублируется", () => {
+  const { d, m } = goal();
+  m.steps.forEach((s) => D.setStep(m, s.id, true, "step"));
+  const a = D.complete(m, "first"),
+    b = D.complete(m, "second");
+  assert.deepEqual([a, b, m.completedAt, d.xp], [true, false, "first", 42]);
+});
+test("Повторное открытие шага возвращает веху в активные", () => {
+  const { m } = goal();
+  m.steps.forEach((s) => D.setStep(m, s.id, true, "step"));
+  D.complete(m, "now");
+  D.setStep(m, "a", false, "later");
+  assert.deepEqual(
+    [m.status, m.completedAt, m.steps[0].completedAt, D.progress(m).percent],
+    ["active", null, null, 67],
+  );
+});
+test("Порядок сохраняется после сериализации и выполнения", () => {
+  const { m } = goal();
+  D.moveStep(m, "c", -1);
+  D.setStep(m, "a", true, "now");
+  assert.deepEqual(
+    D.ordered(JSON.parse(JSON.stringify(m))).map((s) => s.id),
+    ["a", "c", "b"],
+  );
+});
+test("Повторный ID и неправильный сдвиг ничего не меняют", () => {
+  const { m } = goal();
+  assert.deepEqual(
+    [
+      D.addStep(m, "a", "x"),
+      D.moveStep(m, "a", -1),
+      D.moveStep(m, "a", 0),
+      m.steps.length,
+    ],
+    [false, false, false, 3],
+  );
+});
+test("Связь сохраняет расписание повторяющейся задачи", () => {
+  const { d } = goal(),
+    t = {
+      id: "t",
+      repeat: "weekly",
+      days: [1, 3],
+      completions: ["date"],
+      xp: 30,
+    };
+  D.linkTask(d, t, "m", "a");
+  assert.deepEqual(t, {
+    id: "t",
+    repeat: "weekly",
+    days: [1, 3],
+    completions: ["date"],
+    xp: 30,
+    milestone: "m",
+    stepId: "a",
+  });
+});
+test("Задачи и шаги завершаются независимо", () => {
+  const { d, m } = goal();
+  d.tasks.push({ id: "t", milestone: "m", stepId: "a", status: "done" });
+  D.setStep(m, "b", true, "now");
+  assert.deepEqual(
+    [m.steps[0].completed, d.tasks[0].status, D.progress(m).completed],
+    [false, "done", 1],
+  );
+});
+test("Удаление шага отвязывает задачи без удаления", () => {
+  const { d, m } = goal();
+  d.tasks.push({ id: "t", milestone: "m", stepId: "a", completions: ["date"] });
+  D.removeStep(d, m, "a");
+  assert.deepEqual(d.tasks, [
+    { id: "t", milestone: "m", stepId: "", completions: ["date"] },
+  ]);
+});
+test("Удаление вехи сохраняет задачи", () => {
+  const { d } = goal();
+  d.tasks.push({ id: "t", milestone: "m", stepId: "a", status: "done" });
+  D.removeMilestone(d, "m");
+  assert.deepEqual(d.tasks, [
+    { id: "t", milestone: "", stepId: "", status: "done" },
+  ]);
+});
+test("Миграция удалённых ссылок идемпотентна", () => {
+  const { d } = goal();
+  d.tasks.push({ id: "t", milestone: "m", stepId: "gone" });
+  D.migrate(d);
+  const snapshot = JSON.stringify(d);
+  D.migrate(d);
+  assert.equal(JSON.stringify(d), snapshot);
+});
+test("Архив защищает шаги и завершение", () => {
+  const { m } = goal();
+  m.status = "archived";
+  assert.deepEqual(
+    [
+      D.setStep(m, "a", true, "now"),
+      D.addStep(m, "x", "X"),
+      D.complete(m, "now"),
+    ],
+    [false, false, false],
+  );
+});
+test("Удаление последнего шага снимает готовность", () => {
+  const { d, m } = goal();
+  ["a", "b", "c"].forEach((id) => D.removeStep(d, m, id));
+  assert.equal(D.eligible(m), false);
+});
+test("Связь можно очистить без потери задачи", () => {
+  const { d } = goal(),
+    t = { id: "t", status: "active" };
+  D.linkTask(d, t, "m", "a");
+  D.linkTask(d, t, "", "");
+  assert.deepEqual(t, { id: "t", status: "active", milestone: "", stepId: "" });
+});
+test("Сохранение и загрузка сохраняют связи, порядок и прогресс", () => {
+  const { d, m } = goal();
+  D.setStep(m, "a", true, "now");
+  D.moveStep(m, "c", -1);
+  d.tasks.push({ id: "t" });
+  D.linkTask(d, d.tasks[0], "m", "c");
+  assert.deepEqual(D.migrate(JSON.parse(JSON.stringify(d))), d);
+});
