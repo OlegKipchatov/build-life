@@ -1,9 +1,9 @@
-# React migration — work in progress
+# React migration
 
-Target: React + TypeScript, TanStack Router, HeroUI.
+Реализованы React-экраны, маршруты TanStack Router, HeroUI-формы, dropdown, select/multiselect и модальные окна. На мобильных устройствах формы открываются как bottom sheet, поля имеют размер шрифта 16px.
 
-This draft branch stores incremental checkpoints. The application entry point and UI components are not complete yet; do not merge or deploy this checkpoint. The existing docs/ production application is unchanged.
+Сохранены задачи и расписания, RPG-профиль, управление характеристиками и навыками, вехи с шагами и связанными задачами, темы и языки. Прогресс и localStorage совместимы с предыдущей версией.
 
-Preserve buildlife-v1 localStorage, existing XP formulas, milestone steps, linked tasks and completion history. Keep mobile inputs and custom select controls at 16px. Do not disable zoom.
+Миграция хранится в draft PR #1. Main и прежний GitHub Pages не заменяются до слияния. Внутренняя версия предназначена для пользовательской проверки.
 
-Next: restore React screens and editors, run migration/progression tests, verify mobile and desktop, publish an internal review build.
+Проверки описаны в tests/VERIFICATION.md.

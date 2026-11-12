@@ -1,7 +1,81 @@
-import {Link,Outlet,useRouterState} from '@tanstack/react-router';
-import {useEffect} from 'react';
-import {useStore} from './store';
-import {Editors} from './components/Editors';
-import {Icon} from './components/Icon';
-import s from './App.module.css';
-export const App=()=>{const {data,error,ui}=useStore();const path=useRouterState({select:state=>state.location.pathname});useEffect(()=>{window.scrollTo(0,0)},[path]);const items=[{to:'/',name:ui('Задачи','Tasks'),icon:'tasks'},{to:'/milestones',name:ui('Вехи','Milestones'),icon:'milestones'},{to:'/profile',name:ui('Профиль','Profile'),icon:'profile'}] as const;const nav=()=>items.map(item=><Link key={item.to} to={item.to} activeOptions={{exact:item.to==='/'}} className={s.navLink} activeProps={{className:`${s.navLink} ${s.active}`}}><Icon name={item.icon}/><span>{item.name}</span></Link>);return <div className={s.app}><aside className={s.sidebar}><Link to="/" className={s.brand}><img src={`${import.meta.env.BASE_URL}buildlife-icon.png`} alt=""/>BuildLife</Link><nav aria-label={ui('Основная навигация','Main navigation')}>{nav()}</nav><footer><Link to="/settings" className={s.navLink}><Icon name="settings"/><span>{ui('Настройки','Settings')}</span></Link><div className={s.sideBottom}><small>{new Intl.DateTimeFormat(data.language,{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</small><Link to="/profile" className={s.smallAvatar} aria-label={ui('Профиль','Profile')}>{data.name.slice(0,1).toUpperCase()}</Link></div></footer></aside><main className={s.main}>{error&&<p role="alert" className={s.error}>{error}</p>}<Outlet/></main><nav className={s.bottomNav} aria-label={ui('Нижняя навигация','Bottom navigation')}>{nav()}</nav><Editors/></div>};
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useStore } from "./store";
+import { Editors } from "./components/Editors";
+import { Icon } from "./components/Icon";
+import s from "./App.module.css";
+export const App = () => {
+  const { data, error, ui } = useStore();
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [path]);
+  const items = [
+    { to: "/", name: ui("Задачи", "Tasks"), icon: "tasks" },
+    { to: "/milestones", name: ui("Вехи", "Milestones"), icon: "milestones" },
+    { to: "/profile", name: ui("Профиль", "Profile"), icon: "profile" },
+  ] as const;
+  const nav = () =>
+    items.map((item) => (
+      <Link
+        key={item.to}
+        to={item.to}
+        activeOptions={{ exact: item.to === "/" }}
+        className={s.navLink}
+        activeProps={{ className: `${s.navLink} ${s.active}` }}
+      >
+        <Icon name={item.icon} />
+        <span>{item.name}</span>
+      </Link>
+    ));
+  return (
+    <div className={s.app}>
+      <aside className={s.sidebar}>
+        <Link to="/" className={s.brand}>
+          <img src={`${import.meta.env.BASE_URL}buildlife-icon.png`} alt="" />
+          BuildLife
+        </Link>
+        <nav aria-label={ui("Основная навигация", "Main navigation")}>
+          {nav()}
+        </nav>
+        <footer>
+          <Link to="/settings" className={s.navLink}>
+            <Icon name="settings" />
+            <span>{ui("Настройки", "Settings")}</span>
+          </Link>
+          <div className={s.sideBottom}>
+            <small>
+              {new Intl.DateTimeFormat(data.language, {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              }).format(new Date())}
+            </small>
+            <Link
+              to="/profile"
+              className={s.smallAvatar}
+              aria-label={ui("Профиль", "Profile")}
+            >
+              {data.name.slice(0, 1).toUpperCase()}
+            </Link>
+          </div>
+        </footer>
+      </aside>
+      <main className={s.main}>
+        {error && (
+          <p role="alert" className={s.error}>
+            {error}
+          </p>
+        )}
+        <Outlet />
+      </main>
+      <nav
+        className={s.bottomNav}
+        aria-label={ui("Нижняя навигация", "Bottom navigation")}
+      >
+        {nav()}
+      </nav>
+      <Editors />
+    </div>
+  );
+};

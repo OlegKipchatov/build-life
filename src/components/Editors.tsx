@@ -1,19 +1,681 @@
-import {useState} from 'react';
-import {useNavigate} from '@tanstack/react-router';
-import {Button,Modal} from '@heroui/react';
-import {useStore} from '../store';
-import {useUI,type Screen} from '../ui';
-import {addStep,collection,linkTask,uid,level,progression,type Task,type Milestone,type EntityType} from '../model';
-import {Field,Area,Choice,MultiChoice,FormActions} from './Fields';
-import {Icon,iconChoices} from './Icon';
-import {Empty,EntityMenu,Filters,Progress} from './Common';
-import {NameForm} from '../pages/Settings';
-import s from '../App.module.css';
-const Footer=({editing=false}:{editing?:boolean})=>{const {ui}=useStore();const {back}=useUI();return <FormActions><Button variant="secondary" onPress={back}>{ui('Отмена','Cancel')}</Button><Button type="submit">{editing?ui('Сохранить','Save'):ui('Создать','Create')}</Button></FormActions>};
-const IconPicker=({value,onChange}:{value:string;onChange:(v:string)=>void})=>{const {ui}=useStore();return <fieldset className={s.iconPicker}><legend>{ui('Иконка','Icon')}</legend><div>{iconChoices.map(([key,ru,en])=><label key={key} title={ui(ru,en)}><input type="radio" name="icon" value={key} checked={value===key} onChange={()=>onChange(key)} aria-label={ui(ru,en)}/><span><Icon name={key}/></span></label>)}</div></fieldset>};
-const TaskEditor=({screen}:{screen:Extract<Screen,{kind:'task'}>})=>{const {data,update,ui}=useStore();const {back}=useUI();const original=data.tasks.find(t=>t.id===screen.id);const[draft,setDraft]=useState<Task>(()=>({...original,id:original?.id||uid(),name:original?.name||'',difficulty:original?.difficulty||'easy',repeat:original?.repeat||'once',scheduleMode:original?.scheduleMode||(original?['daily','half','year'].includes(original.repeat)||original.repeat==='weekly'&&original.days?.length!==1?'flexible':original.repeat:'once'),milestone:original?.milestone||screen.milestone||'',stepId:original?.stepId||screen.step||'',days:original?.days||[new Date().getDay()]}));const[error,setError]=useState('');const set=<K extends keyof Task>(key:K,value:Task[K])=>setDraft(d=>({...d,[key]:value}));const mode=draft.scheduleMode||'once',flexible=mode==='flexible',goal=data.milestones.find(m=>m.id===draft.milestone);const names=(items:{id:string;name:string}[]):[string,string][]=>[['',ui('Не выбрано','None')],...items.map((x):[string,string]=>[x.id,x.name])];return <form className={s.form} onSubmit={e=>{e.preventDefault();if(!draft.name.trim())return;const repeat=(flexible?draft.repeat:mode) as Task['repeat'];const days=mode==='weekly'?(original?.repeat==='weekly'&&original.days?.length===1?original.days:[new Date().getDay()]):draft.days;if(repeat==='weekly'&&!days?.length){setError(ui('Выбери хотя бы один день','Choose at least one weekday'));return}if(['half','year'].includes(repeat)&&!draft.date){setError(ui('Укажи дату первого выполнения','Choose the first date'));return}if(update(d=>{const current=d.tasks.find(t=>t.id===draft.id);const item={...(current||{id:draft.id,status:'active',completions:[]}),name:draft.name.trim(),difficulty:draft.difficulty,scheduleMode:mode,repeat,days,date:draft.date||'',milestone:draft.milestone||'',stepId:draft.stepId||'',attribute:draft.attribute||'',skill:draft.skill||''} as Task;linkTask(d,item,item.milestone,item.stepId);if(current)Object.assign(current,item);else d.tasks.push(item)}))back();}}><Field label={ui('Название','Name')} value={draft.name} onChange={v=>set('name',v)} required/><div className={s.formGrid}><Choice label={ui('Сложность','Difficulty')} value={draft.difficulty} onChange={v=>set('difficulty',v as Task['difficulty'])} options={[["easy",ui('Легко · 10 XP','Easy · 10 XP')],["medium",ui('Средне · 20 XP','Medium · 20 XP')],["hard",ui('Сложно · 30 XP','Hard · 30 XP')]]}/><Choice label={ui('Повторение','Repeat')} value={mode} onChange={v=>setDraft(d=>({...d,scheduleMode:v,repeat:v==='flexible'?d.repeat:v as Task['repeat']}))} options={[["once",ui('Один раз','One time')],["weekly",ui('Каждую неделю','Every week')],["flexible",ui('Гибкая настройка','Custom schedule')]]}/></div>{flexible&&<><Choice label={ui('Расписание','Schedule')} value={draft.repeat} onChange={v=>set('repeat',v as Task['repeat'])} options={[["once",ui('Один раз','One time')],["daily",ui('Ежедневно','Daily')],["weekly",ui('По дням недели','Selected weekdays')],["half",ui('Раз в полгода','Every six months')],["year",ui('Раз в год','Every year')]]}/>{draft.repeat==='weekly'&&<fieldset className={s.weekdays}><legend>{ui('Дни недели','Weekdays')}</legend><div>{[1,2,3,4,5,6,0].map((day,i)=><Button key={day} variant={draft.days?.includes(day)?'primary':'secondary'} aria-pressed={draft.days?.includes(day)||false} onPress={()=>set('days',draft.days?.includes(day)?draft.days.filter(v=>v!==day):[...(draft.days||[]),day])}>{ui(['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i],['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i])}</Button>)}</div></fieldset>}{['once','half','year'].includes(draft.repeat)&&<Field label={ui('Дата первого выполнения','First date')} type="date" required={draft.repeat!=='once'} value={draft.date||''} onChange={v=>set('date',v)}/>}<Choice label={ui('Веха','Milestone')} value={draft.milestone||''} onChange={v=>setDraft(d=>({...d,milestone:v,stepId:''}))} options={names(data.milestones)}/></>}{(flexible||screen.milestone||draft.milestone)&&<Choice label={ui('Связать с шагом','Link to step')} value={draft.stepId||''} onChange={v=>set('stepId',v)} options={names(goal?.steps||[])}/>} {screen.milestone&&!flexible&&<small className={s.muted}>{ui('Веха','Milestone')}: {goal?.name}</small>}{flexible&&<><Choice label={ui('Характеристика','Attribute')} value={draft.attribute||''} onChange={v=>set('attribute',v)} options={names(data.attributes)}/><Choice label={ui('Навык','Skill')} value={draft.skill||''} onChange={v=>set('skill',v)} options={names(data.skills)}/></>}{error&&<p role="alert" className={s.danger}>{error}</p>}<FormActions><Button variant="secondary" onPress={back}>{ui('Отмена','Cancel')}</Button><Button type="submit">{original?ui('Сохранить','Save'):ui('Создать задачу','Create task')}</Button></FormActions></form>};
-const EntityEditor=({screen}:{screen:Extract<Screen,{kind:'entity'}>})=>{const {data,update,ui}=useStore();const {back}=useUI();const original=data[collection[screen.type]].find(e=>e.id===screen.id) as Milestone|undefined;const[name,setName]=useState(original?.name||'');const[icon,setIcon]=useState(original?.icon||(screen.type==='skill'?'star':screen.type==='milestone'?'target':'shield'));const[description,setDescription]=useState(original?.description||'');const[color,setColor]=useState(original?.color||'green');const[date,setDate]=useState(original?.targetDate||'');const[attributes,setAttributes]=useState(original?.attributes||(original?.attribute?[original.attribute]:[]));return <form className={s.form} onSubmit={e=>{e.preventDefault();if(!name.trim())return;if(update(d=>{const list=d[collection[screen.type]],old=list.find(x=>x.id===screen.id);const values={name:name.trim(),icon,...(screen.type==='milestone'?{description:description.trim(),color,targetDate:date}:{}),...(screen.type==='skill'?{attributes}:{})};if(old){Object.assign(old,values);if(screen.type==='skill')delete old.attribute;}else list.push({id:uid(),xp:0,status:'active',steps:[],...values})}))back();}}><Field label={ui('Название','Name')} value={name} onChange={setName} required maxLength={60}/><IconPicker value={icon} onChange={setIcon}/>{screen.type==='milestone'&&<><Area label={ui('Цель и ожидаемый результат','Goal and expected outcome')} value={description} onChange={setDescription}/><div className={s.formGrid}><Choice label={ui('Цвет','Color')} value={color} onChange={setColor} options={[["green",ui('Зелёный','Green')],["blue",ui('Голубой','Blue')],["peach",ui('Персиковый','Peach')],["purple",ui('Сиреневый','Purple')]]}/><Field label={ui('Целевая дата','Target date')} type="date" value={date} onChange={setDate}/></div></>}{screen.type==='skill'&&<>{data.attributes.length?<MultiChoice label={ui('Связанные характеристики','Linked attributes')} value={attributes} onChange={setAttributes} options={data.attributes.map(a=>[a.id,a.name])}/>:<Empty>{ui('Сначала создай характеристику','Create an attribute first')}</Empty>}<small className={s.muted}>{ui('При повышении уровня навыка каждая связанная характеристика получит 100 XP.','Each linked attribute gains 100 XP when the skill levels up.')}</small></>}<Footer editing={!!original}/></form>};
-const StepEditor=({screen}:{screen:Extract<Screen,{kind:'step'}>})=>{const {data,update,ui}=useStore();const {back}=useUI();const m=data.milestones.find(m=>m.id===screen.milestone),original=m?.steps.find(s=>s.id===screen.id);const[name,setName]=useState(original?.name||'');return <form className={s.form} onSubmit={e=>{e.preventDefault();if(!name.trim())return;if(update(d=>{const goal=d.milestones.find(m=>m.id===screen.milestone);if(!goal||goal.status==='archived')return;if(screen.id){const step=goal.steps.find(s=>s.id===screen.id);if(step)step.name=name.trim()}else addStep(goal,uid(),name)}))back();}}><Field label={ui('Название шага','Step name')} value={name} onChange={setName} required/><Footer editing={!!original}/></form>};
-const Manager=()=>{const {data,ui}=useStore();const {open,close}=useUI();const navigate=useNavigate();const[tab,setTab]=useState('attribute');const[view,setView]=useState('active');const items=(tab==='attribute'?data.attributes:data.skills).filter(x=>view==='archived'?x.status==='archived':x.status!=='archived');return <div className={s.form}><NameForm/><Filters value={tab} onChange={setTab} items={[["attribute",ui('Характеристики','Attributes')],["skill",ui('Навыки','Skills')]]}/><div className={s.managerToolbar}><Filters value={view} onChange={setView} items={[["active",ui('Текущие','Current')],["archived",ui('Архив','Archive')]]}/><Button isIconOnly aria-label={tab==='skill'?ui('Новый навык','New skill'):ui('Новая характеристика','New attribute')} onPress={()=>open({kind:'entity',type:tab as 'attribute'|'skill'})}><Icon name="plus"/></Button></div><div>{items.map(e=><div className={s.managerRow} key={e.id}><span className={s.symbol}><Icon name={e.icon||'shield'}/></span><div><strong>{e.name}</strong><small>{ui('Уровень','Level')} {level(e.xp||0)} · {e.xp||0} XP</small></div><EntityMenu type={tab as EntityType} entity={e}/></div>)}{!items.length&&<Empty>{ui('Здесь пока пусто','Nothing here yet')}</Empty>}</div><Button variant="tertiary" onPress={()=>{close();navigate({to:'/settings'})}}><Icon name="settings"/>{ui('Настройки приложения','App settings')}</Button></div>};
-const SkillDetail=({id}:{id:string})=>{const {data,ui}=useStore();const {open}=useUI();const skill=data.skills.find(s=>s.id===id);if(!skill)return <Empty>{ui('Навык не найден','Skill not found')}</Empty>;const p=progression(skill);return <div className={s.form}><div className={s.skillTop}><span className={s.symbol}><Icon name={skill.icon||'star'}/></span><h3>{skill.name}</h3></div><p>{ui('Уровень','Level')} {p?.level||'—'} · {p?`${p.current} / 100 XP`:ui('Нет данных XP','XP unavailable')}</p><Progress value={p?.current??null}/><p>{data.attributes.filter(a=>(skill.attributes||[skill.attribute]).includes(a.id)).map(a=>a.name).join(' · ')}</p><small>{ui('Всего опыта','Total experience')}: {skill.xp||0} XP · {ui('Связанных задач','Linked tasks')}: {data.tasks.filter(t=>t.skill===id).length}</small><Button onPress={()=>open({kind:'entity',type:'skill',id})}><Icon name="edit"/>{ui('Изменить','Edit')}</Button></div>};
-export const Editors=()=>{const {screen,back}=useUI();const {ui,error}=useStore();let title='';if(screen?.kind==='task')title=screen.id?ui('Редактировать задачу','Edit task'):ui('Новая задача','New task');if(screen?.kind==='entity')title=screen.type==='milestone'?(screen.id?ui('Редактировать веху','Edit milestone'):ui('Новая веха','New milestone')):screen.type==='skill'?(screen.id?ui('Редактировать навык','Edit skill'):ui('Новый навык','New skill')):(screen.id?ui('Редактировать характеристику','Edit attribute'):ui('Новая характеристика','New attribute'));if(screen?.kind==='step')title=screen.id?ui('Редактировать шаг','Edit step'):ui('Новый шаг','New step');if(screen?.kind==='manager')title=ui('Настройки персонажа','Character settings');if(screen?.kind==='skill')title=ui('Навык','Skill');if(screen?.kind==='confirm')title=screen.title;return <Modal.Backdrop isOpen={!!screen} onOpenChange={value=>{if(!value)back()}} className={s.backdrop}><Modal.Container className={s.modalContainer} placement="center" size="md"><Modal.Dialog className={s.dialog}><Modal.Header className={s.modalHeader}><Modal.Heading>{title}</Modal.Heading><Button variant="tertiary" isIconOnly aria-label={ui('Закрыть','Close')} onPress={back}><Icon name="close"/></Button></Modal.Header><Modal.Body className={s.modalBody}>{error&&<p role="alert" className={s.error}>{error}</p>}{screen?.kind==='task'&&<TaskEditor key={screen.id||screen.step||'task'} screen={screen}/>} {screen?.kind==='entity'&&<EntityEditor key={`${screen.type}-${screen.id}`} screen={screen}/>} {screen?.kind==='step'&&<StepEditor key={screen.id||'step'} screen={screen}/>} {screen?.kind==='manager'&&<Manager/>}{screen?.kind==='skill'&&<SkillDetail id={screen.id}/>} {screen?.kind==='confirm'&&<div className={s.form}><p>{screen.message}</p><p className={s.muted}>{ui('Это действие нельзя отменить.','This action cannot be undone.')}</p><FormActions><Button variant="secondary" onPress={back}>{ui('Отмена','Cancel')}</Button><Button className={s.dangerButton} onPress={()=>{if(screen.action())back()}}>{ui('Удалить','Delete')}</Button></FormActions></div>}</Modal.Body></Modal.Dialog></Modal.Container></Modal.Backdrop>};
+import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Button, Modal } from "@heroui/react";
+import { useStore } from "../store";
+import { useUI, type Screen } from "../ui";
+import {
+  addStep,
+  collection,
+  linkTask,
+  uid,
+  level,
+  progression,
+  type Task,
+  type Milestone,
+  type EntityType,
+} from "../model";
+import { Field, Area, Choice, MultiChoice, FormActions } from "./Fields";
+import { Icon, iconChoices } from "./Icon";
+import { Empty, EntityMenu, Filters, Progress } from "./Common";
+import { NameForm } from "../pages/Settings";
+import s from "../App.module.css";
+const Footer = ({ editing = false }: { editing?: boolean }) => {
+  const { ui } = useStore();
+  const { back } = useUI();
+  return (
+    <FormActions>
+      <Button variant="secondary" onPress={back}>
+        {ui("Отмена", "Cancel")}
+      </Button>
+      <Button type="submit">
+        {editing ? ui("Сохранить", "Save") : ui("Создать", "Create")}
+      </Button>
+    </FormActions>
+  );
+};
+const IconPicker = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) => {
+  const { ui } = useStore();
+  return (
+    <fieldset className={s.iconPicker}>
+      <legend>{ui("Иконка", "Icon")}</legend>
+      <div>
+        {iconChoices.map(([key, ru, en]) => (
+          <label key={key} title={ui(ru, en)}>
+            <input
+              type="radio"
+              name="icon"
+              value={key}
+              checked={value === key}
+              onChange={() => onChange(key)}
+              aria-label={ui(ru, en)}
+            />
+            <span>
+              <Icon name={key} />
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+};
+const TaskEditor = ({
+  screen,
+}: {
+  screen: Extract<Screen, { kind: "task" }>;
+}) => {
+  const { data, update, ui } = useStore();
+  const { back } = useUI();
+  const original = data.tasks.find((t) => t.id === screen.id);
+  const [draft, setDraft] = useState<Task>(() => ({
+    ...original,
+    id: original?.id || uid(),
+    name: original?.name || "",
+    difficulty: original?.difficulty || "easy",
+    repeat: original?.repeat || "once",
+    scheduleMode:
+      original?.scheduleMode ||
+      (original
+        ? ["daily", "half", "year"].includes(original.repeat) ||
+          (original.repeat === "weekly" && original.days?.length !== 1)
+          ? "flexible"
+          : original.repeat
+        : "once"),
+    milestone: original?.milestone || screen.milestone || "",
+    stepId: original?.stepId || screen.step || "",
+    days: original?.days || [new Date().getDay()],
+  }));
+  const [error, setError] = useState("");
+  const set = <K extends keyof Task>(key: K, value: Task[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+  const mode = draft.scheduleMode || "once",
+    flexible = mode === "flexible",
+    goal = data.milestones.find((m) => m.id === draft.milestone);
+  const names = (items: { id: string; name: string }[]): [string, string][] => [
+    ["", ui("Не выбрано", "None")],
+    ...items.map((x): [string, string] => [x.id, x.name]),
+  ];
+  return (
+    <form
+      className={s.form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!draft.name.trim()) return;
+        const repeat = (flexible ? draft.repeat : mode) as Task["repeat"];
+        const days =
+          mode === "weekly"
+            ? original?.repeat === "weekly" && original.days?.length === 1
+              ? original.days
+              : [new Date().getDay()]
+            : draft.days;
+        if (repeat === "weekly" && !days?.length) {
+          setError(
+            ui("Выбери хотя бы один день", "Choose at least one weekday"),
+          );
+          return;
+        }
+        if (["half", "year"].includes(repeat) && !draft.date) {
+          setError(
+            ui("Укажи дату первого выполнения", "Choose the first date"),
+          );
+          return;
+        }
+        if (
+          update((d) => {
+            const current = d.tasks.find((t) => t.id === draft.id);
+            const item = {
+              ...(current || {
+                id: draft.id,
+                status: "active",
+                completions: [],
+              }),
+              name: draft.name.trim(),
+              difficulty: draft.difficulty,
+              scheduleMode: mode,
+              repeat,
+              days,
+              date: draft.date || "",
+              milestone: draft.milestone || "",
+              stepId: draft.stepId || "",
+              attribute: draft.attribute || "",
+              skill: draft.skill || "",
+            } as Task;
+            linkTask(d, item, item.milestone, item.stepId);
+            if (current) Object.assign(current, item);
+            else d.tasks.push(item);
+          })
+        )
+          back();
+      }}
+    >
+      <Field
+        label={ui("Название", "Name")}
+        value={draft.name}
+        onChange={(v) => set("name", v)}
+        required
+      />
+      <div className={s.formGrid}>
+        <Choice
+          label={ui("Сложность", "Difficulty")}
+          value={draft.difficulty}
+          onChange={(v) => set("difficulty", v as Task["difficulty"])}
+          options={[
+            ["easy", ui("Легко · 10 XP", "Easy · 10 XP")],
+            ["medium", ui("Средне · 20 XP", "Medium · 20 XP")],
+            ["hard", ui("Сложно · 30 XP", "Hard · 30 XP")],
+          ]}
+        />
+        <Choice
+          label={ui("Повторение", "Repeat")}
+          value={mode}
+          onChange={(v) =>
+            setDraft((d) => ({
+              ...d,
+              scheduleMode: v,
+              repeat: v === "flexible" ? d.repeat : (v as Task["repeat"]),
+            }))
+          }
+          options={[
+            ["once", ui("Один раз", "One time")],
+            ["weekly", ui("Каждую неделю", "Every week")],
+            ["flexible", ui("Гибкая настройка", "Custom schedule")],
+          ]}
+        />
+      </div>
+      {flexible && (
+        <>
+          <Choice
+            label={ui("Расписание", "Schedule")}
+            value={draft.repeat}
+            onChange={(v) => set("repeat", v as Task["repeat"])}
+            options={[
+              ["once", ui("Один раз", "One time")],
+              ["daily", ui("Ежедневно", "Daily")],
+              ["weekly", ui("По дням недели", "Selected weekdays")],
+              ["half", ui("Раз в полгода", "Every six months")],
+              ["year", ui("Раз в год", "Every year")],
+            ]}
+          />
+          {draft.repeat === "weekly" && (
+            <fieldset className={s.weekdays}>
+              <legend>{ui("Дни недели", "Weekdays")}</legend>
+              <div>
+                {[1, 2, 3, 4, 5, 6, 0].map((day, i) => (
+                  <Button
+                    key={day}
+                    variant={
+                      draft.days?.includes(day) ? "primary" : "secondary"
+                    }
+                    aria-pressed={draft.days?.includes(day) || false}
+                    onPress={() =>
+                      set(
+                        "days",
+                        draft.days?.includes(day)
+                          ? draft.days.filter((v) => v !== day)
+                          : [...(draft.days || []), day],
+                      )
+                    }
+                  >
+                    {ui(
+                      ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][i],
+                      ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          {["once", "half", "year"].includes(draft.repeat) && (
+            <Field
+              label={ui("Дата первого выполнения", "First date")}
+              type="date"
+              required={draft.repeat !== "once"}
+              value={draft.date || ""}
+              onChange={(v) => set("date", v)}
+            />
+          )}
+          <Choice
+            label={ui("Веха", "Milestone")}
+            value={draft.milestone || ""}
+            onChange={(v) =>
+              setDraft((d) => ({ ...d, milestone: v, stepId: "" }))
+            }
+            options={names(data.milestones)}
+          />
+        </>
+      )}
+      {(flexible || screen.milestone || draft.milestone) && (
+        <Choice
+          label={ui("Связать с шагом", "Link to step")}
+          value={draft.stepId || ""}
+          onChange={(v) => set("stepId", v)}
+          options={names(goal?.steps || [])}
+        />
+      )}{" "}
+      {screen.milestone && !flexible && (
+        <small className={s.muted}>
+          {ui("Веха", "Milestone")}: {goal?.name}
+        </small>
+      )}
+      {flexible && (
+        <>
+          <Choice
+            label={ui("Характеристика", "Attribute")}
+            value={draft.attribute || ""}
+            onChange={(v) => set("attribute", v)}
+            options={names(data.attributes)}
+          />
+          <Choice
+            label={ui("Навык", "Skill")}
+            value={draft.skill || ""}
+            onChange={(v) => set("skill", v)}
+            options={names(data.skills)}
+          />
+        </>
+      )}
+      {error && (
+        <p role="alert" className={s.danger}>
+          {error}
+        </p>
+      )}
+      <FormActions>
+        <Button variant="secondary" onPress={back}>
+          {ui("Отмена", "Cancel")}
+        </Button>
+        <Button type="submit">
+          {original
+            ? ui("Сохранить", "Save")
+            : ui("Создать задачу", "Create task")}
+        </Button>
+      </FormActions>
+    </form>
+  );
+};
+const EntityEditor = ({
+  screen,
+}: {
+  screen: Extract<Screen, { kind: "entity" }>;
+}) => {
+  const { data, update, ui } = useStore();
+  const { back } = useUI();
+  const original = data[collection[screen.type]].find(
+    (e) => e.id === screen.id,
+  ) as Milestone | undefined;
+  const [name, setName] = useState(original?.name || "");
+  const [icon, setIcon] = useState(
+    original?.icon ||
+      (screen.type === "skill"
+        ? "star"
+        : screen.type === "milestone"
+          ? "target"
+          : "shield"),
+  );
+  const [description, setDescription] = useState(original?.description || "");
+  const [color, setColor] = useState(original?.color || "green");
+  const [date, setDate] = useState(original?.targetDate || "");
+  const [attributes, setAttributes] = useState(
+    original?.attributes || (original?.attribute ? [original.attribute] : []),
+  );
+  return (
+    <form
+      className={s.form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        if (
+          update((d) => {
+            const list = d[collection[screen.type]],
+              old = list.find((x) => x.id === screen.id);
+            const values = {
+              name: name.trim(),
+              icon,
+              ...(screen.type === "milestone"
+                ? { description: description.trim(), color, targetDate: date }
+                : {}),
+              ...(screen.type === "skill" ? { attributes } : {}),
+            };
+            if (old) {
+              Object.assign(old, values);
+              if (screen.type === "skill") delete old.attribute;
+            } else
+              list.push({
+                id: uid(),
+                xp: 0,
+                status: "active",
+                steps: [],
+                ...values,
+              });
+          })
+        )
+          back();
+      }}
+    >
+      <Field
+        label={ui("Название", "Name")}
+        value={name}
+        onChange={setName}
+        required
+        maxLength={60}
+      />
+      <IconPicker value={icon} onChange={setIcon} />
+      {screen.type === "milestone" && (
+        <>
+          <Area
+            label={ui(
+              "Цель и ожидаемый результат",
+              "Goal and expected outcome",
+            )}
+            value={description}
+            onChange={setDescription}
+          />
+          <div className={s.formGrid}>
+            <Choice
+              label={ui("Цвет", "Color")}
+              value={color}
+              onChange={setColor}
+              options={[
+                ["green", ui("Зелёный", "Green")],
+                ["blue", ui("Голубой", "Blue")],
+                ["peach", ui("Персиковый", "Peach")],
+                ["purple", ui("Сиреневый", "Purple")],
+              ]}
+            />
+            <Field
+              label={ui("Целевая дата", "Target date")}
+              type="date"
+              value={date}
+              onChange={setDate}
+            />
+          </div>
+        </>
+      )}
+      {screen.type === "skill" && (
+        <>
+          {data.attributes.length ? (
+            <MultiChoice
+              label={ui("Связанные характеристики", "Linked attributes")}
+              value={attributes}
+              onChange={setAttributes}
+              options={data.attributes.map((a) => [a.id, a.name])}
+            />
+          ) : (
+            <Empty>
+              {ui("Сначала создай характеристику", "Create an attribute first")}
+            </Empty>
+          )}
+          <small className={s.muted}>
+            {ui(
+              "При повышении уровня навыка каждая связанная характеристика получит 100 XP.",
+              "Each linked attribute gains 100 XP when the skill levels up.",
+            )}
+          </small>
+        </>
+      )}
+      <Footer editing={!!original} />
+    </form>
+  );
+};
+const StepEditor = ({
+  screen,
+}: {
+  screen: Extract<Screen, { kind: "step" }>;
+}) => {
+  const { data, update, ui } = useStore();
+  const { back } = useUI();
+  const m = data.milestones.find((m) => m.id === screen.milestone),
+    original = m?.steps.find((s) => s.id === screen.id);
+  const [name, setName] = useState(original?.name || "");
+  return (
+    <form
+      className={s.form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        if (
+          update((d) => {
+            const goal = d.milestones.find((m) => m.id === screen.milestone);
+            if (!goal || goal.status === "archived") return;
+            if (screen.id) {
+              const step = goal.steps.find((s) => s.id === screen.id);
+              if (step) step.name = name.trim();
+            } else addStep(goal, uid(), name);
+          })
+        )
+          back();
+      }}
+    >
+      <Field
+        label={ui("Название шага", "Step name")}
+        value={name}
+        onChange={setName}
+        required
+      />
+      <Footer editing={!!original} />
+    </form>
+  );
+};
+const Manager = () => {
+  const { data, ui } = useStore();
+  const { open, close } = useUI();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState("attribute");
+  const [view, setView] = useState("active");
+  const items = (tab === "attribute" ? data.attributes : data.skills).filter(
+    (x) =>
+      view === "archived" ? x.status === "archived" : x.status !== "archived",
+  );
+  return (
+    <div className={s.form}>
+      <NameForm />
+      <Filters
+        value={tab}
+        onChange={setTab}
+        items={[
+          ["attribute", ui("Характеристики", "Attributes")],
+          ["skill", ui("Навыки", "Skills")],
+        ]}
+      />
+      <div className={s.managerToolbar}>
+        <Filters
+          value={view}
+          onChange={setView}
+          items={[
+            ["active", ui("Текущие", "Current")],
+            ["archived", ui("Архив", "Archive")],
+          ]}
+        />
+        <Button
+          isIconOnly
+          aria-label={
+            tab === "skill"
+              ? ui("Новый навык", "New skill")
+              : ui("Новая характеристика", "New attribute")
+          }
+          onPress={() =>
+            open({ kind: "entity", type: tab as "attribute" | "skill" })
+          }
+        >
+          <Icon name="plus" />
+        </Button>
+      </div>
+      <div>
+        {items.map((e) => (
+          <div className={s.managerRow} key={e.id}>
+            <span className={s.symbol}>
+              <Icon name={e.icon || "shield"} />
+            </span>
+            <div>
+              <strong>{e.name}</strong>
+              <small>
+                {ui("Уровень", "Level")} {level(e.xp || 0)} · {e.xp || 0} XP
+              </small>
+            </div>
+            <EntityMenu type={tab as EntityType} entity={e} />
+          </div>
+        ))}
+        {!items.length && (
+          <Empty>{ui("Здесь пока пусто", "Nothing here yet")}</Empty>
+        )}
+      </div>
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          close();
+          navigate({ to: "/settings" });
+        }}
+      >
+        <Icon name="settings" />
+        {ui("Настройки приложения", "App settings")}
+      </Button>
+    </div>
+  );
+};
+const SkillDetail = ({ id }: { id: string }) => {
+  const { data, ui } = useStore();
+  const { open } = useUI();
+  const skill = data.skills.find((s) => s.id === id);
+  if (!skill) return <Empty>{ui("Навык не найден", "Skill not found")}</Empty>;
+  const p = progression(skill);
+  return (
+    <div className={s.form}>
+      <div className={s.skillTop}>
+        <span className={s.symbol}>
+          <Icon name={skill.icon || "star"} />
+        </span>
+        <h3>{skill.name}</h3>
+      </div>
+      <p>
+        {ui("Уровень", "Level")} {p?.level || "—"} ·{" "}
+        {p ? `${p.current} / 100 XP` : ui("Нет данных XP", "XP unavailable")}
+      </p>
+      <Progress value={p?.current ?? null} />
+      <p>
+        {data.attributes
+          .filter((a) => (skill.attributes || [skill.attribute]).includes(a.id))
+          .map((a) => a.name)
+          .join(" · ")}
+      </p>
+      <small>
+        {ui("Всего опыта", "Total experience")}: {skill.xp || 0} XP ·{" "}
+        {ui("Связанных задач", "Linked tasks")}:{" "}
+        {data.tasks.filter((t) => t.skill === id).length}
+      </small>
+      <Button onPress={() => open({ kind: "entity", type: "skill", id })}>
+        <Icon name="edit" />
+        {ui("Изменить", "Edit")}
+      </Button>
+    </div>
+  );
+};
+export const Editors = () => {
+  const { screen, back } = useUI();
+  const { ui, error } = useStore();
+  let title = "";
+  if (screen?.kind === "task")
+    title = screen.id
+      ? ui("Редактировать задачу", "Edit task")
+      : ui("Новая задача", "New task");
+  if (screen?.kind === "entity")
+    title =
+      screen.type === "milestone"
+        ? screen.id
+          ? ui("Редактировать веху", "Edit milestone")
+          : ui("Новая веха", "New milestone")
+        : screen.type === "skill"
+          ? screen.id
+            ? ui("Редактировать навык", "Edit skill")
+            : ui("Новый навык", "New skill")
+          : screen.id
+            ? ui("Редактировать характеристику", "Edit attribute")
+            : ui("Новая характеристика", "New attribute");
+  if (screen?.kind === "step")
+    title = screen.id
+      ? ui("Редактировать шаг", "Edit step")
+      : ui("Новый шаг", "New step");
+  if (screen?.kind === "manager")
+    title = ui("Настройки персонажа", "Character settings");
+  if (screen?.kind === "skill") title = ui("Навык", "Skill");
+  if (screen?.kind === "confirm") title = screen.title;
+  return (
+    <Modal.Backdrop
+      isOpen={!!screen}
+      onOpenChange={(value) => {
+        if (!value) back();
+      }}
+      className={s.backdrop}
+    >
+      <Modal.Container
+        className={s.modalContainer}
+        placement="center"
+        size="md"
+      >
+        <Modal.Dialog className={s.dialog}>
+          <Modal.Header className={s.modalHeader}>
+            <Modal.Heading>{title}</Modal.Heading>
+            <Button
+              variant="tertiary"
+              isIconOnly
+              aria-label={ui("Закрыть", "Close")}
+              onPress={back}
+            >
+              <Icon name="close" />
+            </Button>
+          </Modal.Header>
+          <Modal.Body className={s.modalBody}>
+            {error && (
+              <p role="alert" className={s.error}>
+                {error}
+              </p>
+            )}
+            {screen?.kind === "task" && (
+              <TaskEditor
+                key={screen.id || screen.step || "task"}
+                screen={screen}
+              />
+            )}{" "}
+            {screen?.kind === "entity" && (
+              <EntityEditor
+                key={`${screen.type}-${screen.id}`}
+                screen={screen}
+              />
+            )}{" "}
+            {screen?.kind === "step" && (
+              <StepEditor key={screen.id || "step"} screen={screen} />
+            )}{" "}
+            {screen?.kind === "manager" && <Manager />}
+            {screen?.kind === "skill" && <SkillDetail id={screen.id} />}{" "}
+            {screen?.kind === "confirm" && (
+              <div className={s.form}>
+                <p>{screen.message}</p>
+                <p className={s.muted}>
+                  {ui(
+                    "Это действие нельзя отменить.",
+                    "This action cannot be undone.",
+                  )}
+                </p>
+                <FormActions>
+                  <Button variant="secondary" onPress={back}>
+                    {ui("Отмена", "Cancel")}
+                  </Button>
+                  <Button
+                    className={s.dangerButton}
+                    onPress={() => {
+                      if (screen.action()) back();
+                    }}
+                  >
+                    {ui("Удалить", "Delete")}
+                  </Button>
+                </FormActions>
+              </div>
+            )}
+          </Modal.Body>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
+  );
+};

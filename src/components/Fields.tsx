@@ -1,8 +1,122 @@
-import {Input,Label,TextField,TextArea,Select,ListBox,FieldError} from '@heroui/react';
-import type {ReactNode} from 'react';
-import s from '../App.module.css';
-export const Field=({label,value,onChange,type='text',required=false,maxLength=120}:{label:string;value:string;onChange:(v:string)=>void;type?:'text'|'date';required?:boolean;maxLength?:number})=><TextField className={s.field} isRequired={required} type={type} value={value} onChange={onChange}><Label>{label}</Label><Input className={s.input} maxLength={maxLength}/><FieldError/></TextField>;
-export const Area=({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void})=><TextField className={s.field} value={value} onChange={onChange}><Label>{label}</Label><TextArea className={s.input} rows={3} maxLength={600}/></TextField>;
-export const Choice=({label,value,onChange,options}:{label:string;value:string;onChange:(v:string)=>void;options:[string,string][]})=><Select className={s.field} value={value} onChange={v=>onChange(String(v??''))}><Label>{label}</Label><Select.Trigger className={s.input}><Select.Value/><Select.Indicator/></Select.Trigger><Select.Popover><ListBox>{options.map(([id,text])=><ListBox.Item key={id} id={id} textValue={text}>{text}<ListBox.ItemIndicator/></ListBox.Item>)}</ListBox></Select.Popover></Select>;
-export const MultiChoice=({label,value,onChange,options}:{label:string;value:string[];onChange:(v:string[])=>void;options:[string,string][]})=><Select selectionMode="multiple" className={s.field} value={value} onChange={v=>onChange(v.map(String))}><Label>{label}</Label><Select.Trigger className={s.input}><Select.Value/><Select.Indicator/></Select.Trigger><Select.Popover><ListBox>{options.map(([id,text])=><ListBox.Item key={id} id={id} textValue={text}>{text}<ListBox.ItemIndicator/></ListBox.Item>)}</ListBox></Select.Popover></Select>;
-export const FormActions=({children}:{children:ReactNode})=><div className={s.formActions}>{children}</div>;
+import {
+  Input,
+  Label,
+  TextField,
+  TextArea,
+  Select,
+  ListBox,
+  FieldError,
+} from "@heroui/react";
+import type { ReactNode } from "react";
+import s from "../App.module.css";
+export const Field = ({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  maxLength = 120,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: "text" | "date";
+  required?: boolean;
+  maxLength?: number;
+}) => (
+  <TextField
+    className={s.field}
+    isRequired={required}
+    type={type}
+    value={value}
+    onChange={onChange}
+  >
+    <Label>{label}</Label>
+    <Input className={s.input} maxLength={maxLength} />
+    <FieldError />
+  </TextField>
+);
+export const Area = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) => (
+  <TextField className={s.field} value={value} onChange={onChange}>
+    <Label>{label}</Label>
+    <TextArea className={s.input} rows={3} maxLength={600} />
+  </TextField>
+);
+export const Choice = ({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+}) => (
+  <Select
+    className={s.field}
+    value={value}
+    onChange={(v) => onChange(String(v ?? ""))}
+  >
+    <Label>{label}</Label>
+    <Select.Trigger className={s.input}>
+      <Select.Value />
+      <Select.Indicator />
+    </Select.Trigger>
+    <Select.Popover>
+      <ListBox>
+        {options.map(([id, text]) => (
+          <ListBox.Item key={id} id={id} textValue={text}>
+            {text}
+            <ListBox.ItemIndicator />
+          </ListBox.Item>
+        ))}
+      </ListBox>
+    </Select.Popover>
+  </Select>
+);
+export const MultiChoice = ({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: [string, string][];
+}) => (
+  <Select
+    selectionMode="multiple"
+    className={s.field}
+    value={value}
+    onChange={(v) => onChange(v.map(String))}
+  >
+    <Label>{label}</Label>
+    <Select.Trigger className={s.input}>
+      <Select.Value />
+      <Select.Indicator />
+    </Select.Trigger>
+    <Select.Popover>
+      <ListBox>
+        {options.map(([id, text]) => (
+          <ListBox.Item key={id} id={id} textValue={text}>
+            {text}
+            <ListBox.ItemIndicator />
+          </ListBox.Item>
+        ))}
+      </ListBox>
+    </Select.Popover>
+  </Select>
+);
+export const FormActions = ({ children }: { children: ReactNode }) => (
+  <div className={s.formActions}>{children}</div>
+);
