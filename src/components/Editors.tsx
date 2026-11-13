@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Button, Modal } from "@heroui/react";
+import { Button, Modal, Drawer } from "@heroui/react";
 import { useStore } from "../store";
 import { useUI, type Screen } from "../ui";
 import {
@@ -24,7 +24,7 @@ import {
 } from "./Fields";
 import { Icon, iconChoices } from "./Icon";
 import { Empty, EntityMenu, Filters, Progress } from "./Common";
-import { NameForm } from "../pages/Settings";
+import { NameForm, NameSetting } from "../pages/Settings";
 import s from "../App.module.css";
 const Footer = ({ editing = false }: { editing?: boolean }) => {
   const { ui } = useStore();
@@ -481,13 +481,7 @@ const Manager = () => {
   );
   return (
     <div className={s.form}>
-      <details className={s.managerIdentity}>
-        <summary>
-          {ui("Имя персонажа", "Character name")}
-          <span>{data.name}</span>
-        </summary>
-        <NameForm />
-      </details>
+      <NameSetting />
       <section className={s.managerSection}>
         <Filters
           value={tab}
@@ -590,7 +584,15 @@ const SkillDetail = ({ id }: { id: string }) => {
     </div>
   );
 };
+const mobileQuery = "(max-width: 767px)";
+const subscribeMobile = (notify: () => void) => {
+  const query = window.matchMedia(mobileQuery);
+  query.addEventListener("change", notify);
+  return () => query.removeEventListener("change", notify);
+};
 export const Editors = () => {
+  const mobile = useSyncExternalStore(subscribeMobile, () => window.matchMedia(mobileQuery).matches, () => false);
+  const Surface = mobile ? Drawer : Modal;
   const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
   const { screen, back } = useUI();
   const { ui, error } = useStore();
@@ -618,24 +620,14 @@ export const Editors = () => {
       : ui("Новый шаг", "New step");
   if (screen?.kind === "manager")
     title = ui("Настройки персонажа", "Character settings");
+  if (screen?.kind === "name") title = ui("Изменить имя", "Edit name");
   if (screen?.kind === "skill") title = ui("Навык", "Skill");
   if (screen?.kind === "confirm") title = screen.title;
-  return (
-    <Modal.Backdrop
-      isOpen={!!screen}
-      onOpenChange={(value) => {
-        if (!value) back();
-      }}
-      className={s.backdrop}
-    >
-      <Modal.Container
-        className={s.modalContainer}
-        placement="center"
-        size="md"
-      >
-        <Modal.Dialog className={s.dialog}>
-          <Modal.Header className={s.modalHeader}>
-            <Modal.Heading>{title}</Modal.Heading>
+  const content = (
+        <Surface.Dialog className={`${s.dialog} ${mobile ? s.sheet : ""}`}>
+          {mobile && <Drawer.Handle />}
+          <Surface.Header className={s.modalHeader}>
+            <Surface.Heading>{title}</Surface.Heading>
             <Button
               variant="tertiary"
               isIconOnly
@@ -644,9 +636,9 @@ export const Editors = () => {
             >
               <Icon name="close" />
             </Button>
-          </Modal.Header>
+          </Surface.Header>
           <FooterTarget value={footerTarget}>
-            <Modal.Body className={s.modalBody}>
+            <Surface.Body className={s.modalBody}>
               {error && (
                 <p role="alert" className={s.error}>
                   {error}
@@ -668,6 +660,7 @@ export const Editors = () => {
                 <StepEditor key={screen.id || "step"} screen={screen} />
               )}{" "}
               {screen?.kind === "manager" && <Manager />}
+              {screen?.kind === "name" && <NameForm onSaved={back} actions={<Footer editing />} />}
               {screen?.kind === "skill" && <SkillDetail id={screen.id} />}{" "}
               {screen?.kind === "confirm" && (
                 <div className={s.form}>
@@ -693,11 +686,21 @@ export const Editors = () => {
                   </FormActions>
                 </div>
               )}
-            </Modal.Body>
+            </Surface.Body>
             <div ref={setFooterTarget} className={s.modalFooter} />
           </FooterTarget>
-        </Modal.Dialog>
-      </Modal.Container>
+        </Surface.Dialog>
+  );
+  const onOpenChange = (value: boolean) => { if (!value) back(); };
+  return mobile ? (
+    <Drawer isOpen={!!screen} onOpenChange={onOpenChange}>
+      <Drawer.Backdrop className={s.backdrop}>
+        <Drawer.Content placement="bottom" className={s.sheetContainer}>{content}</Drawer.Content>
+      </Drawer.Backdrop>
+    </Drawer>
+  ) : (
+    <Modal.Backdrop isOpen={!!screen} onOpenChange={onOpenChange} className={s.backdrop}>
+      <Modal.Container className={s.modalContainer} placement="center" size="md">{content}</Modal.Container>
     </Modal.Backdrop>
   );
 };

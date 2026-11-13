@@ -5,6 +5,7 @@ export type Screen =
   | { kind: "entity"; type: Exclude<EntityType, "task">; id?: string }
   | { kind: "step"; milestone: string; id?: string }
   | { kind: "manager" }
+  | { kind: "name" }
   | { kind: "skill"; id: string }
   | { kind: "confirm"; title: string; message: string; action: () => boolean };
 const Context = createContext<{
