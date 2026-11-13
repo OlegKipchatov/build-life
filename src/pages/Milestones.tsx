@@ -271,10 +271,7 @@ export const MilestoneDetail = () => {
       <Header title={m.name} back={() => navigate({ to: "/milestones" })}>
         <EntityMenu type="milestone" entity={m} />
       </Header>
-      <div className={s.goalIntro}>
-        <span className={s.symbol} data-color={m.color || "green"}>
-          <Icon name={m.icon || "target"} />
-        </span>
+      {(m.description || m.targetDate || m.status === "archived" || m.status === "completed") && <div className={s.goalIntro}>
         <div>
           {m.description && <p>{m.description}</p>}
           {m.targetDate && (
@@ -296,7 +293,7 @@ export const MilestoneDetail = () => {
             </small>
           )}
         </div>
-      </div>
+      </div>}
       <section className={s.panel}>
         <div className={s.progressCaption}>
           <h2>{ui("Прогресс", "Progress")}</h2>

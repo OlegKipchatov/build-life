@@ -1,25 +1,27 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@heroui/react";
 import { Header } from "../components/Common";
 import { Field, Choice } from "../components/Fields";
+import { useUI } from "../ui";
+import { Icon } from "../components/Icon";
 import { useStore } from "../store";
 import type { Data } from "../model";
 import s from "../App.module.css";
-export const NameForm = () => {
+export const NameForm = ({ onSaved, actions }: { onSaved?: () => void; actions?: ReactNode }) => {
   const { data, update, ui } = useStore();
   const [name, setName] = useState(data.name);
   const [saved, setSaved] = useState(false);
   return (
     <form
+      id="editor-form"
       className={s.form}
       onSubmit={(e) => {
         e.preventDefault();
-        if (name.trim())
-          setSaved(
-            update((d) => {
-              d.name = name.trim();
-            }),
-          );
+        if (name.trim()) {
+          const success = update((d) => { d.name = name.trim(); });
+          setSaved(success);
+          if (success) onSaved?.();
+        }
       }}
     >
       <Field
@@ -32,12 +34,20 @@ export const NameForm = () => {
         maxLength={40}
         required
       />
-      <Button type="submit">{ui("Сохранить имя", "Save name")}</Button>
+      {actions || <Button type="submit">{ui("Сохранить имя", "Save name")}</Button>}
       {saved && (
         <small role="status">{ui("Имя сохранено", "Name saved")}</small>
       )}
     </form>
   );
+};
+export const NameSetting = () => {
+  const { data, ui } = useStore();
+  const { open } = useUI();
+  return <button className={s.nameSetting} onClick={() => open({ kind: "name" })}>
+    <span><small>{ui("Имя персонажа", "Character name")}</small><strong>{data.name}</strong></span>
+    <Icon name="edit" />
+  </button>;
 };
 export const Settings = () => {
   const { data, update, ui } = useStore();
@@ -45,7 +55,7 @@ export const Settings = () => {
     <>
       <Header title={ui("Настройки", "Settings")} />
       <section className={s.panel}>
-        <NameForm />
+        <NameSetting />
       </section>
       <section className={`${s.panel} ${s.form}`}>
         <Choice
