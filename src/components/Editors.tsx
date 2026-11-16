@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, useEffect, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button, Modal, Drawer } from "@heroui/react";
 import { useStore } from "../store";
@@ -584,6 +584,10 @@ export const Editors = () => {
   const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
   const { screen, back, close, finish, depth, pendingClose, cancelClose, discard } = useUI();
   const { ui, error } = useStore();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const warningRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (screen) headingRef.current?.focus(); }, [screen]);
+  useEffect(() => { if (pendingClose) warningRef.current?.focus(); }, [pendingClose]);
   let title = "";
   if (screen?.kind === "task")
     title = screen.id
@@ -616,7 +620,7 @@ export const Editors = () => {
           {mobile && <Drawer.Handle />}
           <Surface.Header className={s.modalHeader}>
             {depth > 1 && <Button isIconOnly variant="tertiary" aria-label={ui("Назад", "Back")} onPress={back}><Icon name="back" /></Button>}
-            <Surface.Heading>{title}</Surface.Heading>
+            <Surface.Heading ref={headingRef} tabIndex={-1}>{title}</Surface.Heading>
             <Button
               variant="tertiary"
               isIconOnly
@@ -628,7 +632,7 @@ export const Editors = () => {
           </Surface.Header>
           <FooterTarget value={footerTarget}>
             <Surface.Body className={s.modalBody}>
-              {pendingClose && <div role="alert" className={s.unsaved}>
+              {pendingClose && <div role="alert" tabIndex={-1} ref={warningRef} className={s.unsaved}>
                 <strong>{ui("Сохранить изменения?", "Save changes?")}</strong>
                 <p>{ui("В форме есть несохранённые данные.", "This form has unsaved changes.")}</p>
                 <Button type="submit" form="editor-form">{ui("Сохранить", "Save")}</Button>

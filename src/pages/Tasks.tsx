@@ -76,7 +76,7 @@ export const TaskRow = ({
               year: "Yearly",
             }[task.repeat],
           )}
-          {task.date ? ` · ${formatDate(task.date, data.language)}` : ""}
+          {task.repeat === "weekly" ? " · " + [1,2,3,4,5,6,0].filter(day => task.days?.includes(day)).map(day => ui(["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][day], ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day])).join(", ") : task.date && task.repeat !== "daily" ? ` · ${formatDate(task.date, data.language)}` : ""}
         </small>
         <span className={s.xp}>+{xpValue(task)} XP</span>
       </div>

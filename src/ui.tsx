@@ -33,7 +33,7 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   const [managerTab, setManagerTab] = useState("attribute");
   const [managerView, setManagerView] = useState("active");
   const [expandedSteps, setExpandedSteps] = useState<string[]>([]);
-  const finish = () => { setDirty(false); setPending(null); setStack(v => v.slice(0, -1)); };
+  const finish = () => { setDirty(false); setPending(null); setStack(v => pending === "close" ? [] : v.slice(0, -1)); };
   const leave = (all: boolean) => {
     if (dirty) setPending(all ? "close" : "back");
     else { setPending(null); setStack(v => all ? [] : v.slice(0, -1)); }
