@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { migrate, freshData, type Data } from "./model";
+import { restoreData } from "./backup";
 export const STORAGE_KEY = "buildlife-v1";
 export const readData = (storage: Pick<Storage, "getItem">): Data =>
   migrate(JSON.parse(storage.getItem(STORAGE_KEY) || "null"));
@@ -15,6 +16,7 @@ export const persistData = (storage: Pick<Storage, "setItem">, data: Data) =>
 type Store = {
   data: Data;
   update: (recipe: (data: Data) => void) => boolean;
+  restore: (data: Data) => boolean;
   error: string;
   ui: (ru: string, en: string) => string;
 };
@@ -28,7 +30,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return freshData();
     }
   });
-  const [blocked] = useState(() => {
+  const [blocked, setBlocked] = useState(() => {
     try {
       readData(localStorage);
       return false;
@@ -105,6 +107,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         data,
         update,
         error,
+        restore: next => {
+          try { restoreData(localStorage, next); holder.current = next; setData(next); setBlocked(false); setError(""); return true; }
+          catch { setError("Не удалось восстановить данные. Исходные данные сохранены."); return false; }
+        },
         ui: (ru, en) => (data.language === "en" ? en : ru),
       }}
     >

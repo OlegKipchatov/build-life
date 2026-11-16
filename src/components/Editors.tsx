@@ -2,8 +2,9 @@ import { useState, useSyncExternalStore } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button, Modal, Drawer } from "@heroui/react";
 import { useStore } from "../store";
-import { useUI, type Screen } from "../ui";
+import { useUI, useDraftProtection, type Screen } from "../ui";
 import {
+  dateKey,
   addStep,
   collection,
   linkTask,
@@ -25,10 +26,11 @@ import {
 import { Icon, iconChoices } from "./Icon";
 import { Empty, EntityMenu, Filters, Progress } from "./Common";
 import { NameForm, NameSetting } from "../pages/Settings";
+import { TaskRow } from "../pages/Tasks";
 import s from "../App.module.css";
 const Footer = ({ editing = false }: { editing?: boolean }) => {
   const { ui } = useStore();
-  const { back } = useUI();
+  const { back, finish, setManagerTab, setManagerView, expandedSteps, setExpandedSteps } = useUI();
   return (
     <FormActions>
       <Button variant="secondary" onPress={back}>
@@ -77,7 +79,7 @@ const TaskEditor = ({
   screen: Extract<Screen, { kind: "task" }>;
 }) => {
   const { data, update, ui } = useStore();
-  const { back } = useUI();
+  const { back, finish, setManagerTab, setManagerView, expandedSteps, setExpandedSteps } = useUI();
   const original = data.tasks.find((t) => t.id === screen.id);
   const [draft, setDraft] = useState<Task>(() => ({
     ...original,
@@ -95,8 +97,11 @@ const TaskEditor = ({
         : "once"),
     milestone: original?.milestone || screen.milestone || "",
     stepId: original?.stepId || screen.step || "",
-    days: original?.days || [new Date().getDay()],
+    date: original ? original.date : screen.date || dateKey(),
+    skill: original?.skill || screen.skill || "",
+    days: original?.days || [new Date((screen.date || dateKey()) + "T12:00:00").getDay()],
   }));
+  useDraftProtection(draft);
   const [error, setError] = useState("");
   const set = <K extends keyof Task>(key: K, value: Task[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -115,12 +120,7 @@ const TaskEditor = ({
         e.preventDefault();
         if (!draft.name.trim()) return;
         const repeat = (flexible ? draft.repeat : mode) as Task["repeat"];
-        const days =
-          mode === "weekly"
-            ? original?.repeat === "weekly" && original.days?.length === 1
-              ? original.days
-              : [new Date().getDay()]
-            : draft.days;
+        const days = draft.days;
         if (repeat === "weekly" && !days?.length) {
           setError(
             ui("Выбери хотя бы один день", "Choose at least one weekday"),
@@ -158,7 +158,7 @@ const TaskEditor = ({
             else d.tasks.push(item);
           })
         )
-          back();
+          finish();
       }}
     >
       <Field
@@ -209,7 +209,9 @@ const TaskEditor = ({
               ["year", ui("Раз в год", "Every year")],
             ]}
           />
-          {draft.repeat === "weekly" && (
+        </>
+      )}
+          {(mode === "weekly" || (flexible && draft.repeat === "weekly")) && (
             <fieldset className={s.weekdays}>
               <legend>{ui("Дни недели", "Weekdays")}</legend>
               <div>
@@ -247,45 +249,18 @@ const TaskEditor = ({
               onChange={(v) => set("date", v)}
             />
           )}
-          <Choice
-            label={ui("Веха", "Milestone")}
-            value={draft.milestone || ""}
-            onChange={(v) =>
-              setDraft((d) => ({ ...d, milestone: v, stepId: "" }))
-            }
-            options={names(data.milestones)}
-          />
-        </>
-      )}
-      {(flexible || screen.milestone || draft.milestone) && (
-        <Choice
-          label={ui("Связать с шагом", "Link to step")}
-          value={draft.stepId || ""}
-          onChange={(v) => set("stepId", v)}
-          options={names(goal?.steps || [])}
-        />
-      )}{" "}
-      {screen.milestone && !flexible && (
-        <small className={s.muted}>
-          {ui("Веха", "Milestone")}: {goal?.name}
-        </small>
-      )}
-      {flexible && (
-        <>
-          <Choice
-            label={ui("Характеристика", "Attribute")}
-            value={draft.attribute || ""}
-            onChange={(v) => set("attribute", v)}
-            options={names(data.attributes)}
-          />
-          <Choice
-            label={ui("Навык", "Skill")}
-            value={draft.skill || ""}
-            onChange={(v) => set("skill", v)}
-            options={names(data.skills)}
-          />
-        </>
-      )}
+      <details className={s.additional}>
+        <summary>{ui("Связи и развитие", "Links and development")}</summary>
+        <Choice label={ui("Веха", "Milestone")} value={draft.milestone || ""}
+          onChange={v => setDraft(d => ({ ...d, milestone: v, stepId: "" }))} options={names(data.milestones)} />
+        {goal && <Choice label={ui("Связать с шагом", "Link to step")} value={draft.stepId || ""}
+          onChange={v => set("stepId", v)} options={names(goal.steps)} />}
+        <Choice label={ui("Характеристика", "Attribute")} value={draft.attribute || ""}
+          onChange={v => set("attribute", v)} options={names(data.attributes)} />
+        <Choice label={ui("Навык", "Skill")} value={draft.skill || ""}
+          onChange={v => set("skill", v)} options={names(data.skills)} />
+      </details>
+      {(goal || draft.skill) && <small className={s.muted}>{[goal?.name, goal?.steps.find(x => x.id === draft.stepId)?.name, data.skills.find(x => x.id === draft.skill)?.name].filter(Boolean).join(" · ")}</small>}
       {error && (
         <p role="alert" className={s.danger}>
           {error}
@@ -310,7 +285,9 @@ const EntityEditor = ({
   screen: Extract<Screen, { kind: "entity" }>;
 }) => {
   const { data, update, ui } = useStore();
-  const { back } = useUI();
+  const { back, finish, setManagerTab, setManagerView, expandedSteps, setExpandedSteps } = useUI();
+  const navigate = useNavigate();
+  const [newId] = useState(uid);
   const original = data[collection[screen.type]].find(
     (e) => e.id === screen.id,
   ) as Milestone | undefined;
@@ -329,6 +306,7 @@ const EntityEditor = ({
   const [attributes, setAttributes] = useState(
     original?.attributes || (original?.attribute ? [original.attribute] : []),
   );
+  useDraftProtection({ name, icon, description, color, date, attributes });
   return (
     <form
       id="editor-form"
@@ -353,15 +331,18 @@ const EntityEditor = ({
               if (screen.type === "skill") delete old.attribute;
             } else
               list.push({
-                id: uid(),
+                id: newId,
                 xp: 0,
                 status: "active",
                 steps: [],
                 ...values,
               });
           })
-        )
-          back();
+        ) {
+          finish();
+          if (!original && screen.type === "milestone") navigate({ to: "/milestones/$id", params: { id: newId } });
+          if (!original && screen.type !== "milestone") { setManagerTab(screen.type); setManagerView("active"); }
+        }
       }}
     >
       <Field
@@ -414,7 +395,7 @@ const EntityEditor = ({
             />
           ) : (
             <Empty>
-              {ui("Сначала создай характеристику", "Create an attribute first")}
+              {ui("Характеристики можно связать позже", "Attributes can be linked later")}
             </Empty>
           )}
           <small className={s.muted}>
@@ -435,10 +416,12 @@ const StepEditor = ({
   screen: Extract<Screen, { kind: "step" }>;
 }) => {
   const { data, update, ui } = useStore();
-  const { back } = useUI();
+  const { back, finish, setManagerTab, setManagerView, expandedSteps, setExpandedSteps } = useUI();
+  const [newId] = useState(uid);
   const m = data.milestones.find((m) => m.id === screen.milestone),
     original = m?.steps.find((s) => s.id === screen.id);
   const [name, setName] = useState(original?.name || "");
+  useDraftProtection(name);
   return (
     <form
       id="editor-form"
@@ -453,12 +436,15 @@ const StepEditor = ({
             if (screen.id) {
               const step = goal.steps.find((s) => s.id === screen.id);
               if (step) step.name = name.trim();
-            } else addStep(goal, uid(), name);
+            } else addStep(goal, newId, name);
           })
-        )
-          back();
+        ) {
+          if (!original) setExpandedSteps([...expandedSteps, newId]);
+          finish();
+        }
       }}
     >
+      {m?.status === "completed" && !original && <p role="note">{ui("Новый шаг вернёт веху в активные и снимет дату достижения. Заработанный XP сохранится.", "Adding a step reopens the milestone and clears its achievement date. Earned XP is kept.")}</p>}
       <Field
         label={ui("Название шага", "Step name")}
         value={name}
@@ -471,10 +457,8 @@ const StepEditor = ({
 };
 const Manager = () => {
   const { data, ui } = useStore();
-  const { open, close } = useUI();
+  const { open, close, managerTab: tab, setManagerTab: setTab, managerView: view, setManagerView: setView } = useUI();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("attribute");
-  const [view, setView] = useState("active");
   const items = (tab === "attribute" ? data.attributes : data.skills).filter(
     (x) =>
       view === "archived" ? x.status === "archived" : x.status !== "archived",
@@ -577,7 +561,11 @@ const SkillDetail = ({ id }: { id: string }) => {
         {ui("Связанных задач", "Linked tasks")}:{" "}
         {data.tasks.filter((t) => t.skill === id).length}
       </small>
-      <Button onPress={() => open({ kind: "entity", type: "skill", id })}>
+      <h3>{ui("Связанные задачи", "Linked tasks")}</h3>
+      {data.tasks.filter(t => t.skill === id).map(t => <TaskRow key={t.id} task={t} inGoal />)}
+      {!data.tasks.some(t => t.skill === id) && <Empty>{ui("Пока нет связанных задач", "No linked tasks yet")}</Empty>}
+      <Button onPress={() => open({ kind: "task", skill: id, date: dateKey() })}><Icon name="plus" />{ui("Добавить задачу", "Add task")}</Button>
+      <Button variant="secondary" onPress={() => open({ kind: "entity", type: "skill", id })}>
         <Icon name="edit" />
         {ui("Изменить", "Edit")}
       </Button>
@@ -594,7 +582,7 @@ export const Editors = () => {
   const mobile = useSyncExternalStore(subscribeMobile, () => window.matchMedia(mobileQuery).matches, () => false);
   const Surface = mobile ? Drawer : Modal;
   const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
-  const { screen, back } = useUI();
+  const { screen, back, close, finish, depth, pendingClose, cancelClose, discard } = useUI();
   const { ui, error } = useStore();
   let title = "";
   if (screen?.kind === "task")
@@ -627,18 +615,26 @@ export const Editors = () => {
         <Surface.Dialog className={`${s.dialog} ${mobile ? s.sheet : ""}`}>
           {mobile && <Drawer.Handle />}
           <Surface.Header className={s.modalHeader}>
+            {depth > 1 && <Button isIconOnly variant="tertiary" aria-label={ui("Назад", "Back")} onPress={back}><Icon name="back" /></Button>}
             <Surface.Heading>{title}</Surface.Heading>
             <Button
               variant="tertiary"
               isIconOnly
               aria-label={ui("Закрыть", "Close")}
-              onPress={back}
+              onPress={close}
             >
               <Icon name="close" />
             </Button>
           </Surface.Header>
           <FooterTarget value={footerTarget}>
             <Surface.Body className={s.modalBody}>
+              {pendingClose && <div role="alert" className={s.unsaved}>
+                <strong>{ui("Сохранить изменения?", "Save changes?")}</strong>
+                <p>{ui("В форме есть несохранённые данные.", "This form has unsaved changes.")}</p>
+                <Button type="submit" form="editor-form">{ui("Сохранить", "Save")}</Button>
+                <Button variant="secondary" onPress={cancelClose}>{ui("Продолжить редактирование", "Keep editing")}</Button>
+                <Button variant="tertiary" onPress={discard}>{ui("Не сохранять", "Discard")}</Button>
+              </div>}
               {error && (
                 <p role="alert" className={s.error}>
                   {error}
@@ -660,28 +656,28 @@ export const Editors = () => {
                 <StepEditor key={screen.id || "step"} screen={screen} />
               )}{" "}
               {screen?.kind === "manager" && <Manager />}
-              {screen?.kind === "name" && <NameForm onSaved={back} actions={<Footer editing />} />}
+              {screen?.kind === "name" && <NameForm onSaved={finish} actions={<Footer editing />} />}
               {screen?.kind === "skill" && <SkillDetail id={screen.id} />}{" "}
               {screen?.kind === "confirm" && (
                 <div className={s.form}>
                   <p>{screen.message}</p>
-                  <p className={s.muted}>
+                  {!screen.label && <p className={s.muted}>
                     {ui(
                       "Это действие нельзя отменить.",
                       "This action cannot be undone.",
                     )}
-                  </p>
+                  </p>}
                   <FormActions>
                     <Button variant="secondary" onPress={back}>
                       {ui("Отмена", "Cancel")}
                     </Button>
                     <Button
-                      className={s.dangerButton}
+                      className={screen.danger === false ? undefined : s.dangerButton}
                       onPress={() => {
-                        if (screen.action()) back();
+                        if (screen.action()) finish();
                       }}
                     >
-                      {ui("Удалить", "Delete")}
+                      {screen.label || ui("Удалить", "Delete")}
                     </Button>
                   </FormActions>
                 </div>
@@ -691,7 +687,7 @@ export const Editors = () => {
           </FooterTarget>
         </Surface.Dialog>
   );
-  const onOpenChange = (value: boolean) => { if (!value) back(); };
+  const onOpenChange = (value: boolean) => { if (!value) close(); };
   return mobile ? (
     <Drawer isOpen={!!screen} onOpenChange={onOpenChange}>
       <Drawer.Backdrop className={s.backdrop}>

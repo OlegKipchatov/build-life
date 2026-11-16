@@ -6,6 +6,7 @@ import { useUI } from "../ui";
 import {
   formatDate,
   taskCount,
+  done,
   canComplete,
   completeMilestone,
   milestoneProgress,
@@ -110,10 +111,13 @@ export const Milestones = () => {
 const StepItem = ({ step, m }: { step: Step; m: Milestone }) => {
   const { data, update, ui } = useStore();
   const { open } = useUI();
-  const [expanded, setExpanded] = useState(false);
+  const { expandedSteps, setExpandedSteps } = useUI();
+  const expanded = expandedSteps.includes(step.id);
+  const setExpanded = (value: boolean) => setExpandedSteps(value ? [...expandedSteps, step.id] : expandedSteps.filter(id => id !== step.id));
   const tasks = data.tasks.filter(
     (t) => t.milestone === m.id && t.stepId === step.id,
   );
+  const completedTasks = tasks.filter(t => t.repeat === "once" ? t.status === "done" || (t.status === "archived" && t.wasDone) : done(t)).length;
   const locked = m.status === "archived";
   const ordered = orderedSteps(m),
     index = ordered.findIndex((x) => x.id === step.id);
@@ -136,11 +140,13 @@ const StepItem = ({ step, m }: { step: Step; m: Milestone }) => {
               ? ui("Открыть шаг заново", "Reopen step")
               : ui("Выполнить шаг", "Complete step")
           }
-          onPress={() =>
-            edit((target) => {
-              setStep(target, step.id, !step.completed);
-            })
-          }
+          onPress={() => {
+            const action = () => edit(target => { setStep(target, step.id, !step.completed); });
+            if (m.status === "completed") open({ kind: "confirm", title: ui("Вернуть веху в активные?", "Reopen milestone?"),
+              message: ui("Достижение и дата завершения будут сняты. Задачи и заработанный XP сохранятся.", "The achievement and completion date will be cleared. Tasks and XP are kept."),
+              label: ui("Открыть шаг и веху", "Reopen step and milestone"), danger: false, action });
+            else action();
+          }}
         >
           {step.completed ? <Icon name="check" /> : <span />}
         </Button>
@@ -150,7 +156,7 @@ const StepItem = ({ step, m }: { step: Step; m: Milestone }) => {
           onClick={() => setExpanded(!expanded)}
         >
           <strong>{step.name}</strong>
-          <small>{taskCount(tasks.length, data.language)}</small>
+          <small>{completedTasks} / {taskCount(tasks.length, data.language)} · {ui("выполнено", "complete")}</small>
         </button>
         <Button
           isIconOnly
@@ -226,6 +232,10 @@ const StepItem = ({ step, m }: { step: Step; m: Milestone }) => {
           {tasks.map((t) => (
             <TaskRow key={t.id} task={t} inGoal />
           ))}
+          {!locked && !step.completed && tasks.length > 0 && completedTasks === tasks.length && <div className={s.stepHint}>
+            <p>{ui("Задачи выполнены. Результат шага достигнут?", "Tasks complete. Is the step outcome achieved?")}</p>
+            <Button variant="secondary" onPress={() => edit(target => { setStep(target, step.id, true); })}>{ui("Выполнить шаг", "Complete step")}</Button>
+          </div>}
           {!locked && (
             <Button
               variant="tertiary"
@@ -355,6 +365,7 @@ export const MilestoneDetail = () => {
         <h2>
           {ui("Шаги", "Steps")} <span className={s.counter}>{p.total}</span>
         </h2>
+        <p className={s.muted}>{ui("Прогресс вехи меняется при выполнении шагов. Задачи отмечаются отдельно.", "Milestone progress follows steps. Tasks are completed independently.")}</p>
         {orderedSteps(m).map((step) => (
           <StepItem key={step.id} m={m} step={step} />
         ))}
@@ -364,6 +375,7 @@ export const MilestoneDetail = () => {
               "Разбей цель на конкретные результаты.",
               "Break your goal into concrete outcomes.",
             )}
+            {m.status !== "archived" && <Button onPress={() => open({ kind: "step", milestone: m.id })}>{ui("Добавить первый шаг", "Add first step")}</Button>}
           </Empty>
         )}
       </section>
