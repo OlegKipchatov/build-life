@@ -159,14 +159,16 @@ export const EntityMenu = ({
     items.splice(1, 0, {
       label:
         entity.status === "completed"
-          ? ui("Вернуть в активные", "Reopen")
-          : ui("Завершить", "Complete"),
+          ? ui("Продолжить освоение", "Continue learning")
+          : ui("Отметить освоенным", "Mark as mastered"),
       icon: "check",
-      action: () =>
-        update((d) => {
-          const e = d.skills.find((x) => x.id === entity.id);
-          if (e) e.status = e.status === "completed" ? "active" : "completed";
-        }),
+      action: () => open({
+        kind: "confirm", title: ui("Статус освоения навыка", "Skill mastery"),
+        message: ui("Освоенный навык остаётся в профиле. Задачи продолжают приносить XP. Чтобы скрыть навык, используй архив.", "Mastered skills stay on the profile and tasks still earn XP. Archive a skill to hide it."),
+        label: entity.status === "completed" ? ui("Продолжить освоение", "Continue learning") : ui("Отметить освоенным", "Mark as mastered"),
+        danger: false,
+        action: () => update(d => { const e = d.skills.find(x => x.id === entity.id); if (e) e.status = e.status === "completed" ? "active" : "completed"; }),
+      }),
     });
   return (
     <Menu

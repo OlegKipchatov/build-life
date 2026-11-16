@@ -137,7 +137,7 @@ export const Profile = () => {
                     </small>
                   </span>
                   {skill.status === "completed" && (
-                    <small>{ui("Завершён", "Completed")}</small>
+                    <small>{ui("Освоен", "Mastered")}</small>
                   )}
                 </button>
               ))}

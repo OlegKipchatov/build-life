@@ -76,7 +76,7 @@ export const TaskRow = ({
               year: "Yearly",
             }[task.repeat],
           )}
-          {task.date ? ` · ${formatDate(task.date, data.language)}` : ""}
+          {task.repeat === "weekly" ? " · " + [1,2,3,4,5,6,0].filter(day => task.days?.includes(day)).map(day => ui(["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][day], ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day])).join(", ") : task.date && task.repeat !== "daily" ? ` · ${formatDate(task.date, data.language)}` : ""}
         </small>
         <span className={s.xp}>+{xpValue(task)} XP</span>
       </div>
@@ -88,6 +88,7 @@ export const Tasks = () => {
   const { data, ui } = useStore();
   const { open } = useUI();
   const [date, setDate] = useState(dateKey());
+  const [mode, setMode] = useState("calendar");
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState("active");
   const start = new Date(dateKey() + "T12:00:00");
@@ -109,7 +110,7 @@ export const Tasks = () => {
   );
   const week = (delta: number) => {
     setOffset(offset + delta);
-    const d = new Date(start);
+    const d = new Date(date + "T12:00:00");
     d.setDate(d.getDate() + delta * 7);
     setDate(dateKey(d));
   };
@@ -119,10 +120,11 @@ export const Tasks = () => {
       <Header title={ui("Задачи", "Tasks")}>
         <Action
           label={ui("Новая задача", "New task")}
-          onPress={() => open({ kind: "task" })}
+          onPress={() => open({ kind: "task", date: mode === "calendar" ? date : dateKey() })}
         />
       </Header>
-      <section className={s.panel}>
+      <Filters value={mode} onChange={setMode} items={[["calendar", ui("По дням", "Calendar")], ["all", ui("Все задачи", "All tasks")]]} />
+      {mode === "calendar" ? <section className={s.panel}>
         <h2>
           {date === dateKey()
             ? ui("Задачи на сегодня", "Tasks for today")
@@ -134,6 +136,7 @@ export const Tasks = () => {
             {list.filter((t) => done(t, date)).length} / {list.length}
           </span>
         </h2>
+        <Button variant="tertiary" onPress={() => { setDate(dateKey()); setOffset(0); }}>{ui("Сегодня", "Today")}</Button>
         <div className={s.calendar}>
           <Button
             isIconOnly
@@ -176,8 +179,7 @@ export const Tasks = () => {
         ) : (
           <Empty>{ui("Задач на этот день нет", "No tasks for this day")}</Empty>
         )}
-      </section>
-      <section className={s.panel}>
+      </section> : <section className={s.panel}>
         <h2>{ui("Все задачи", "All tasks")}</h2>
         <Filters
           value={filter}
@@ -193,7 +195,7 @@ export const Tasks = () => {
         ) : (
           <Empty>{ui("Здесь пока пусто", "Nothing here yet")}</Empty>
         )}
-      </section>
+      </section>}
     </>
   );
 };
